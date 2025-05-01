@@ -1234,4 +1234,4 @@ def api_voice_assistant():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-لقد ارجعت الملفات السابقة كما هي تماما كما كانت تعمل ولقد اضفة لك ملف voice_assistant (1).py كما هو في Render لكي ترى ما المشكل بالضبط وهو الدي تتكرر فيه مشكلة api_voice_assistant
+
