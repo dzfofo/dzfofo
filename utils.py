@@ -121,10 +121,19 @@ def voicerss_text_to_speech(text, language="ar-sa", voice="Leila"):
         # A GET request might consume quota even if we don't download the body immediately.
         # For simplicity and checking, just return the URL. The browser will handle GET.
         # Caveat: This doesn't confirm success, just URL construction.
-        return url
+        # You might want to make a small GET request (e.g., range=0-100) to check if it's valid audio.
+        response = requests.get(url, timeout=10, stream=True) # Use stream=True to not download the whole file
+        if response.status_code == 200:
+             response.close() # Close the connection immediately
+             logger.info("VoiceRSS API request successful (URL generated)")
+             return url
+        else:
+             logger.error(f"VoiceRSS API error on URL check: {response.status_code}")
+             response.close()
+             return None
 
     except Exception as e:
-        logger.error(f"Error with VoiceRSS API: {e}")
+        logger.error(f"Error with VoiceRSS API URL check: {e}")
         return None
 
 
@@ -147,11 +156,14 @@ def text_to_speech(text, voice_id="EXAVITQu4vr4xnSDxMaL", tts_service="elevenlab
     # Validate input
     if not text or not text.strip():
         logger.warning("Empty text provided to text_to_speech")
-        return None
+        # Even for empty text, might want to return a browser signal or empty audio data structure
+        return {'type': 'browser', 'text': ""} # Or handle as error? Let's allow empty text to result in nothing
+
 
     processed_text = preprocess_arabic_text(text)
 
     # --- Try ElevenLabs (if requested or default) ---
+    # Check if ElevenLabs key is available before attempting the call
     if (tts_service == "elevenlabs" or tts_service == "default") and ELEVENLABS_API_KEY:
         logger.info("Attempting TTS with ElevenLabs...")
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
@@ -162,13 +174,14 @@ def text_to_speech(text, voice_id="EXAVITQu4vr4xnSDxMaL", tts_service="elevenlab
         }
         payload = {
             "text": processed_text,
-            "model_id": "eleven_multilingual_v2",
+            "model_id": "eleven_multilingual_v2", # eleven_turbo is also an option, might be faster/cheaper
             "voice_settings": {
                 "stability": 0.5,
                 "similarity_boost": 0.75,
                 "style": 0.0,
                 "use_speaker_boost": True
-            }
+            },
+            "speed": 1.0 # Add speed control if needed
         }
         try:
             max_timeout = 60 if len(processed_text) > 500 else 30
@@ -187,7 +200,7 @@ def text_to_speech(text, voice_id="EXAVITQu4vr4xnSDxMaL", tts_service="elevenlab
             logger.error(f"Error calling ElevenLabs API: {e}")
             # Fall through to next method
 
-    # --- Try VoiceRSS (if requested or if ElevenLabs failed) ---
+    # --- Try VoiceRSS (if requested or if ElevenLabs failed and key is available) ---
     if (tts_service == "voicerss" or (tts_service in ["elevenlabs", "default"] and not ELEVENLABS_API_KEY)) and VOICERSS_API_KEY:
         logger.info("Attempting TTS with VoiceRSS...")
         # Use original text for VoiceRSS for now, or adjust preprocessing if needed
@@ -200,14 +213,14 @@ def text_to_speech(text, voice_id="EXAVITQu4vr4xnSDxMaL", tts_service="elevenlab
              # Fall through to next method
 
     # --- Fallback to Browser TTS (if requested or if APIs failed) ---
-    if tts_service == "browser" or (not ELEVENLABS_API_KEY and not VOICERSS_API_KEY) or (tts_service != "browser" and tts_service != "voicerss" and tts_service != "elevenlabs"):
-        logger.warning("Using browser TTS as no API is available, explicitly requested, or previous APIs failed.")
-        # The browser will handle the text-to-speech
-        return {'type': 'browser', 'text': text}
+    # Ensure browser fallback is always an option unless specifically disabled in a setting (not implemented yet)
+    logger.warning("Using browser TTS as no API is available, explicitly requested, or previous APIs failed.")
+    # The browser will handle the text-to-speech
+    return {'type': 'browser', 'text': text}
 
-    # --- All methods failed ---
-    logger.error("All requested/available TTS methods failed.")
-    return None
+    # --- All methods failed (This part should ideally not be reached if browser fallback is always on) ---
+    # logger.error("All requested/available TTS methods failed.")
+    # return None
 
 
 def call_openrouter_api(messages, model="openai/gpt-3.5-turbo", temperature=0.7, max_tokens=1000, system_message=None):
@@ -224,6 +237,7 @@ def call_openrouter_api(messages, model="openai/gpt-3.5-turbo", temperature=0.7,
     - system_message: Optional system message(s) to set the behavior of the assistant (string or list of strings)
 
     Returns: The generated text response string, or a string indicating error on failure.
+             Returns None only if API Key is missing.
     """
     if not OPENROUTER_API_KEY:
         logger.warning("OpenRouter API key not found.")
@@ -367,9 +381,16 @@ def generate_image(prompt, size=512):
         "stable-diffusion-xl-1024-v1-0": [1024]
         # Add other models and their sizes
     }
-    if engine_id in supported_sizes and size not in supported_sizes[engine_id]:
-         logger.warning(f"Requested size {size} not officially listed for {engine_id}. Using default size 512.")
-         size = 512 # Fallback to a safe size if not supported
+    # Simple check: if engine in supported_sizes and size not in list, fallback.
+    # Or more robust: query /v1/engines/list or check documentation.
+    # For now, just check if size is 'common' for the default engine.
+    if engine_id == "stable-diffusion-v1-6" and size not in [512, 768]:
+         logger.warning(f"Requested size {size} might not be optimal for {engine_id}. Using size 512.")
+         size = 512
+    elif engine_id == "stable-diffusion-xl-1024-v1-0" and size != 1024:
+         logger.warning(f"Requested size {size} might not be optimal for {engine_id}. Using size 1024.")
+         size = 1024
+
 
     # Basic prompt safety check (optional but recommended)
     # In a real app, use a moderation API
@@ -405,6 +426,7 @@ def generate_image(prompt, size=512):
             # Get base64 encoded image
             if data and "artifacts" in data and data["artifacts"]:
                 logger.info("Stability API request successful, image generated.")
+                # Stability AI returns base64 directly in 'base64' field
                 return data["artifacts"][0]["base64"]
             else:
                 logger.error("No image artifacts in Stability API response")
@@ -417,7 +439,9 @@ def generate_image(prompt, size=512):
                  if "message" in error_data:
                       logger.error(f"Stability API error message: {error_data['message']}")
                       # Return specific error message from API if available
-                      return None # Or return error_data['message'] if you want to show it to user
+                      # You might want to return the message itself to the user
+                      # return error_data['message']
+                      return None # Returning None as per function signature on failure
             except json.JSONDecodeError:
                  pass # Ignore if response is not JSON
             return None
