@@ -280,6 +280,7 @@ def call_openrouter_api(messages, model="openai/gpt-3.5-turbo", temperature=0.7,
         return "حدث خطأ داخلي في معالجة رسالة المستخدم."
 
     # Add a default system message if none was provided explicitly and none exists in input messages
+    # This allows specific system messages from assistant configs to override the default.
     if not system_message and not any(msg.get("role") == "system" for msg in formatted_messages):
          formatted_messages.insert(0, { # Insert at the beginning
             "role": "system",
