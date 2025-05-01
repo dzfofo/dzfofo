@@ -247,13 +247,9 @@
 {# Add any specific JavaScript for features_hub here if needed later #}
 {# For now, relies on main.js for theme toggle and logout #}
 <script>
-    // Optional: Add JavaScript here if you need dynamic behavior on this page,
-    // like showing tooltips on hover, or filtering features based on API key status
-    // (although API key status check is better done in the backend before rendering).
-
-    // Example: Check if certain APIs are connected and adjust buttons/cards (less ideal than backend check)
+    // --- REMOVED THE COMMENTED-OUT JAVASCRIPT BLOCK THAT CAUSED THE JSON ERROR ---
     // document.addEventListener('DOMContentLoaded', function() {
-    //     const hasStability = {{ has_stability | tojson }}; // Assuming you pass this from Flask
+    //     const hasStability = {{ has_stability | tojson }}; // THIS LINE CAUSED THE ERROR
     //     if (!hasStability) {
     //         const imageGenButton = document.querySelector('#image_generator_feature-card .feature-button');
     //         if (imageGenButton) {
@@ -264,5 +260,6 @@
     //         }
     //     }
     // });
+    // --- END OF REMOVED BLOCK ---
 </script>
 {% endblock %}
