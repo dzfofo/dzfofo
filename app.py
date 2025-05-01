@@ -14,10 +14,17 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from urllib.parse import quote
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# --- Import Utility Functions ---
+from utils import (
+    preprocess_arabic_text, text_to_speech, voicerss_text_to_speech,
+    call_openrouter_api, translate_text, generate_image
+)
 
 # --- Import Phone Assistant Module ---
 from phone_assistant import suggest_phone, suggest_cheaper_alternative, get_advanced_comparison
@@ -1238,7 +1245,6 @@ def api_advanced_comparison():
     })
 
 # --- Voice Assistant Routes ---
-from voice_assistant import text_to_speech as va_text_to_speech, call_openrouter_api as va_call_openrouter
 
 @app.route('/voice_assistant')
 def voice_assistant():
@@ -1249,11 +1255,13 @@ def voice_assistant():
     # Determine models available based on API keys
     has_openrouter = bool(OPENROUTER_API_KEY)
     has_elevenlabs = bool(ELEVENLABS_API_KEY)
+    has_voicerss = bool(os.environ.get("VOICERSS_API_KEY"))
     
     return render_template('voice_assistant.html', 
                          username=session.get('username', ''),
                          has_openrouter=has_openrouter,
-                         has_elevenlabs=has_elevenlabs)
+                         has_elevenlabs=has_elevenlabs,
+                         has_voicerss=has_voicerss)
 
 @app.route("/api/voice_assistant", methods=["POST"])
 def api_voice_assistant():
@@ -1264,23 +1272,53 @@ def api_voice_assistant():
     data = request.get_json()
     user_prompt = data.get("prompt", "")
     model = data.get("model", "mistralai/mixtral-8x7b-instruct")
+    tts_service = data.get("tts_service", "elevenlabs")  # Default to ElevenLabs but allow override
     
     if not user_prompt:
         return jsonify({"status": "error", "message": "لم يتم توفير نص للمعالجة"})
     
-    # Call OpenRouter API to get AI response
-    ai_response = va_call_openrouter(user_prompt, model=model)
+    # Prepare messages with system message optimized for voice assistant
+    messages = [
+        {
+            "role": "system",
+            "content": "أنت مساعد صوتي ذكي باللغة العربية اسمه ياسمين. أجب بإجابات مختصرة ومفيدة. كن ودودًا ولكن مباشرًا. اليوم هو 1 مايو 2025."
+        },
+        {
+            "role": "user",
+            "content": user_prompt
+        }
+    ]
     
-    # Generate audio if ElevenLabs key is available
-    audio_base64 = None
-    if ELEVENLABS_API_KEY:
-        voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
-        audio_base64 = va_text_to_speech(ai_response, voice_id=voice_id)
+    # Import from utils to use the updated OpenRouter API function
+    from utils import call_openrouter_api as utils_openrouter
+
+    # Call OpenRouter API to get AI response
+    try:
+        ai_response = utils_openrouter(messages, model=model)
+    except Exception as e:
+        logger.error(f"Error using utils.call_openrouter_api: {e}")
+        # Fallback to original function if needed
+        ai_response = call_openrouter_api(messages[1]["content"], model=model)
+    
+    # Generate audio
+    voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
+    
+    # Use utils.text_to_speech with tts_service parameter if available, otherwise fall back to original function
+    try:
+        from utils import text_to_speech as utils_tts
+        audio_result = utils_tts(ai_response, voice_id=voice_id, tts_service=tts_service)
+    except (TypeError, ImportError) as e:
+        logger.warning(f"Failed to use utils.text_to_speech with tts_service: {e}. Using default TTS.")
+        audio_result = text_to_speech(ai_response, voice_id=voice_id)
+    
+    # Determine if we got back a URL (VoiceRSS) or base64 data (ElevenLabs)
+    audio_type = "url" if audio_result and audio_result.startswith("http") else "base64"
     
     return jsonify({
         "status": "success",
         "reply": ai_response,
-        "audio": audio_base64
+        "audio": audio_result,
+        "audio_type": audio_type
     })
 
 if __name__ == "__main__":
