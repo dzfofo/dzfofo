@@ -4,6 +4,8 @@
 
 {% block styles %}
 <style>
+    /* Add any specific styles for features_hub here */
+    /* Styles from previous versions included for continuity */
     .hero-section {
         background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
         color: white;
@@ -12,7 +14,7 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .hero-pattern {
         position: absolute;
         top: 0;
@@ -24,27 +26,27 @@
         opacity: 0.1;
         z-index: 0;
     }
-    
+
     .hero-content {
         position: relative;
         z-index: 1;
         max-width: 800px;
         margin: 0 auto;
     }
-    
+
     .hero-title {
         font-size: 2.5rem;
         margin-bottom: 15px;
         font-weight: 700;
     }
-    
+
     .hero-subtitle {
         font-size: 1.2rem;
         margin-bottom: 30px;
         font-weight: 300;
         opacity: 0.9;
     }
-    
+
     .features-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -53,7 +55,7 @@
         max-width: 1200px;
         margin: 0 auto;
     }
-    
+
     .feature-card {
         background: var(--card-color);
         border-radius: var(--radius-lg);
@@ -64,12 +66,12 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .feature-card:hover {
         transform: translateY(-10px);
         box-shadow: var(--shadow-lg);
     }
-    
+
     .feature-header {
         padding: 20px;
         background-size: cover;
@@ -80,7 +82,7 @@
         align-items: center;
         justify-content: center;
     }
-    
+
     .feature-header::before {
         content: '';
         position: absolute;
@@ -91,7 +93,7 @@
         background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7));
         z-index: 1;
     }
-    
+
     .feature-icon {
         position: relative;
         z-index: 2;
@@ -105,14 +107,14 @@
         font-size: 30px;
         box-shadow: var(--shadow-md);
     }
-    
+
     .feature-body {
         padding: 20px;
         flex-grow: 1;
         display: flex;
         flex-direction: column;
     }
-    
+
     .feature-title {
         font-size: 1.4rem;
         font-weight: 600;
@@ -120,7 +122,7 @@
         color: var(--text-color);
         text-align: center;
     }
-    
+
     .feature-description {
         color: var(--text-light);
         margin-bottom: 20px;
@@ -128,7 +130,7 @@
         line-height: 1.6;
         text-align: center; /* Center description text */
     }
-    
+
     .feature-button {
         background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
         color: white;
@@ -143,19 +145,19 @@
         display: block; /* Make the button full width of card body */
         width: 100%; /* Ensure button fills container */
     }
-    
+
     .feature-button:hover {
         transform: translateY(-3px);
         box-shadow: var(--shadow-md);
     }
-    
+
     .welcome-message {
         text-align: center;
         margin: 20px 0;
         font-size: 1.2rem;
         color: var(--text-color);
     }
-    
+
     .welcome-name {
         font-weight: 700;
         color: var(--primary-color);
@@ -193,7 +195,21 @@
                     {# Use icon based on assistant type/id #}
                     {# Make sure you have added appropriate icon classes (e.g., fa-comments, fa-image) #}
                     {# to your Font Awesome library or update this logic #}
-                    <i class="fas {% if assistant.id == 'general' %}fa-comments{% elif assistant.id == 'gpt4o' %}fa-brain{% elif assistant.id == 'claude' %}fa-robot{% elif assistant.id == 'gemini' %}fa-lightbulb{% elif assistant.id == 'voice_assistant_feature' %}fa-microphone-alt{% elif assistant.id == 'audio_generator_feature' %}fa-volume-up{% elif assistant.id == 'tech_compare_feature' %}fa-mobile-alt{% elif assistant.id == 'phone_assistant_feature' %}fa-mobile{% elif assistant.id == 'image_generator_feature' %}fa-image{% else %}fa-star{% endif %}"></i>
+                    {# You can use a simple check like 'if "feature" in assistant.id' for feature pages vs chat bots #}
+                    <i class="fas {% if 'feature' in assistant.id %}
+                                     {% if assistant.id == 'voice_assistant_feature' %}fa-microphone-alt
+                                     {% elif assistant.id == 'audio_generator_feature' %}fa-volume-up
+                                     {% elif assistant.id == 'tech_compare_feature' %}fa-mobile-alt
+                                     {% elif assistant.id == 'phone_assistant_feature' %}fa-mobile
+                                     {% elif assistant.id == 'image_generator_feature' %}fa-image
+                                     {% else %}fa-star{% endif %}
+                                 {% else %} {# This is a chat assistant #}
+                                     {% if assistant.id == 'general' %}fa-comments
+                                     {% elif assistant.id == 'gpt4o' %}fa-brain
+                                     {% elif assistant.id == 'claude' %}fa-robot
+                                     {% elif assistant.id == 'gemini' %}fa-lightbulb
+                                     {% else %}fa-star{% endif %}
+                                 {% endif %}"></i>
                 </div>
             </div>
             <div class="feature-body">
