@@ -47,7 +47,11 @@ except ImportError as e:
     VOICERSS_API_KEY = None
     def text_to_speech(*args, **kwargs):
         logger.error("utils.text_to_speech not available.")
-        return None
+        # Return a structure similar to success for browser fallback simulation
+        if 'text' in kwargs:
+             return {'type': 'browser', 'text': kwargs['text']}
+        return None # Return None if no text provided
+
     def call_openrouter_api(*args, **kwargs):
         logger.error("utils.call_openrouter_api not available.")
         return "عذراً، خدمات الذكاء الاصطناعي غير متاحة بسبب خطأ داخلي في التطبيق."
@@ -176,7 +180,7 @@ offline_responses = {
 }
 default_offline_response = "أعتذر، لا يمكنني معالجة طلبك الآن. يبدو أن هناك مشكلة في الاتصال بالإنترنت أو بخدمات الذكاء الاصطناعي."
 
-# Mock AI Assistant / Feature Data - In a real application, this could come from a database
+# Mock AI Assistant / Feature Data - In a real application, this would come from a database
 ASSISTANTS = [
     # Chat Bots
     {
@@ -186,7 +190,7 @@ ASSISTANTS = [
         "description": "للدردشة العامة والاستفسارات المتنوعة",
         "color": "linear-gradient(135deg, #10a37f, #0a8263)",
         "model": "openai/gpt-3.5-turbo",
-        "system_instruction": "أنت مساعد ذكي ومفيد باللغة العربية اسمه ياسمين. أجب دائماً باللغة العربية الفصحى ما لم يطلب المستخدم لغة أخرى. قدم معلومات دقيقة وشاملة. تجنب الإجابات الطويلة جداً." # Specific system message for chat
+        "system_instruction": "أنت مساعد ذكي ومفيد باللغة العربية اسمه ياسمين. أجب دائماً باللغة العربية الفصحى ما لم يطلب المستخدم لغة أخرى. قدم معلومات دقيقة وشاملة. تجنب الإجابات الطويلة جداً. اليوم هو 1 مايو 2025." # Specific system message for chat
     },
     {
         "id": "gpt4o",
@@ -219,15 +223,15 @@ ASSISTANTS = [
     {
         "id": "voice_assistant_feature",
         "name": "المساعد الصوتي",
-        "avatar": "https://images.unsplash.com/photo-1693722339588-66e64f8fd48a?w=64&h=64&fit=crop&auto=format",
+        "avatar": "https://images.unsplash.com/photo-1693722339588-66e64f8fd48a?w=64&h=64&fit=crop&auto=format", # Using the image from voice_assistant.html
         "description": "تحدث إلى المساعد الذكي باللغة العربية",
-        "color": "linear-gradient(135deg, #e67e22, #d35400)",
+        "color": "linear-gradient(135deg, #e67e22, #d35400)", # Using the color from voice_assistant.html
         "url": "/voice_assistant"
     },
      {
         "id": "audio_generator_feature",
         "name": "توليد الصوت",
-        "avatar": "https://images.unsplash.com/photo-1616161560417-66d4db5892ec?w=64&h=64&fit=crop&auto=format",
+        "avatar": "https://images.unsplash.com/photo-1616161560417-66d4db5892ec?w=64&h=64&fit=crop&auto=format", # ElevenLabs avatar
         "description": "تحويل نص لصوت طبيعي",
         "color": "linear-gradient(135deg, #ff5757, #c43a3a)",
         "url": "/audio-generator"
@@ -235,7 +239,7 @@ ASSISTANTS = [
     {
         "id": "tech_compare_feature",
         "name": "مقارنة الأجهزة",
-        "avatar": "https://images.unsplash.com/photo-1530545002211-21753020f4c8?w=64&h=64&fit=crop&auto=format",
+        "avatar": "https://images.unsplash.com/photo-1530545002211-21753020f4c8?w=64&h=64&fit=crop&auto=format", # TechCompare avatar
         "description": "مقارنة مواصفات الهواتف الذكية",
         "color": "linear-gradient(135deg, #4a69bd, #3a59ad)",
         "url": "/compare"
@@ -243,7 +247,7 @@ ASSISTANTS = [
      {
         "id": "phone_assistant_feature",
         "name": "مساعد الهواتف",
-        "avatar": "https://images.unsplash.com/photo-1599317193916-7bb9b7b7e744?w=64&h=64&fit=crop&auto=format",
+        "avatar": "https://images.unsplash.com/photo-1599317193916-7bb9b7b7e744?w=64&h=64&fit=crop&auto=format", # PhoneAssistant avatar
         "description": "اقتراح الهاتف المناسب لمتطلباتك",
         "color": "linear-gradient(135deg, #fd1d1d, #f77062)",
         "url": "/phone-assistant"
@@ -251,7 +255,7 @@ ASSISTANTS = [
      {
         "id": "image_generator_feature",
         "name": "توليد الصور",
-        "avatar": "https://images.unsplash.com/photo-1579546998516-e0d3cd0e3d4b?w=64&h=64&fit=crop&auto=format",
+        "avatar": "https://images.unsplash.com/photo-1579546998516-e0d3cd0e3d4b?w=64&h=64&fit=crop&auto=format", # Abstract/creative image
         "description": "إنشاء صور من وصف نصي",
         "color": "linear-gradient(135deg, #3498db, #2980b9)",
         "url": "/image-generator"
@@ -273,21 +277,25 @@ def index():
 @app.route('/features')
 # @login_required # Uncomment when Flask-Login is fully used
 def features_hub():
+    """Render the features hub page."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
 
-    # Separate chat bots from features for display flexibility if needed,
-    # but current template structure iterates through all ASSISTANTS
+    # Pass available models/features to the template
+    # You could add logic here to only show features based on available API keys
+    # For example:
+    # filtered_assistants = [a for a in ASSISTANTS if a.get("model") or (a.get("url") and a["id"] != "image_generator_feature") or (a["id"] == "image_generator_feature" and STABILITY_API_KEY)]
 
     return render_template('features_hub.html',
                           username=session.get('username', ''),
-                          assistants=ASSISTANTS)
+                          assistants=ASSISTANTS) # Pass the full list for now
 
 
 @app.route('/chat/<assistant_id>')
 # @login_required # Uncomment when Flask-Login is fully used
 def chat(assistant_id):
+    """Render the chat page for a specific assistant."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -295,12 +303,12 @@ def chat(assistant_id):
     # Find the selected assistant configuration
     assistant_config = next((a for a in ASSISTANTS if a['id'] == assistant_id), None)
 
-    # If assistant ID not found or is a feature link, default to general chat config
+    # If assistant ID not found or is a feature link (not a chat model), default to general chat config
     if not assistant_config or "model" not in assistant_config:
         logger.warning(f"Chat assistant ID '{assistant_id}' config not found or not a chat bot. Defaulting to general.")
         assistant_config = next((a for a in ASSISTANTS if a['id'] == 'general' and "model" in a), None)
         if not assistant_config:
-             return "Error: Default chat assistant configuration not found.", 500
+             return "Error: Default chat assistant configuration not found.", 500 # Hard error if no default chat assistant exists
         # Update assistant_id for the template in case it defaulted
         assistant_id = assistant_config['id']
 
@@ -314,6 +322,7 @@ def chat(assistant_id):
 @app.route('/compare')
 # @login_required # Uncomment when Flask-Login is fully used
 def compare():
+    """Render the device comparison page."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -324,7 +333,8 @@ def compare():
 
 @app.route('/api/save_username', methods=['POST'])
 # NOTE: This should ideally integrate with Flask-Login and potentially database User model
-def save_username():
+def api_save_username():
+    """API endpoint to save username to session and redirect to features."""
     data = request.get_json()
     username = data.get('username', '').strip()
 
@@ -341,7 +351,8 @@ def save_username():
 
 @app.route('/api/logout', methods=['POST'])
 # @login_required # Add this decorator when Flask-Login is fully implemented
-def logout():
+def api_logout():
+    """API endpoint to log out the user."""
     # Logout the user if Flask-Login is used
     # logout_user() # Uncomment when Flask-Login is fully used
     # Clear the session
@@ -352,6 +363,7 @@ def logout():
 @app.route('/api/chat_message', methods=['POST'])
 # @login_required # Add this decorator when Flask-Login is fully implemented
 def api_chat_message():
+    """API endpoint to handle chat messages with AI assistants."""
     # Manual session check for now
     if 'username' not in session:
         # Also check with Flask-Login: if not current_user.is_authenticated: ...
@@ -362,7 +374,13 @@ def api_chat_message():
     assistant_id = data.get('assistant_id', 'general') # Default to 'general'
 
     if not message:
-        return jsonify({"status": "error", "message": "الرسالة مطلوبة"}), 400
+        # Return success for empty message but with no response text
+        return jsonify({
+            "status": "success",
+            "response": "",
+            "timestamp": datetime.now().strftime("%Y/%m/%d %I:%M %p").replace("AM", "ص").replace("PM", "م")
+        })
+
 
     # Find the selected assistant configuration
     assistant_config = next((a for a in ASSISTANTS if a['id'] == assistant_id and "model" in a), None)
@@ -989,21 +1007,22 @@ def api_compare_devices():
     message = "تم العثور على الجهازين."
     status = "success"
 
-    if not device1_specs or device1_specs.get("name") == "غير معروف" or device1_specs.get("name").lower() == device1_name.lower():
-         device1_found = False
-         device1_specs = fallback_phone_data(device1_name) # Use fallback structure for consistent keys
-    else:
-         device1_found = True
+    # Check if find_phone_match returned fallback data (name is query.title() or "غير معروف")
+    # Or if it returned a dictionary but the name doesn't match the input query well (more complex)
+    # A simpler check is if the returned name is the default "غير معروف" or exactly the queried name's title case (which fallback_phone_data does)
+    device1_found = not (device1_specs.get("name") == "غير معروف" or device1_specs.get("name") == device1_name.title())
+    device2_found = not (device2_specs.get("name") == "غير معروف" or device2_specs.get("name") == device2_name.title())
 
-    if not device2_specs or device2_specs.get("name") == "غير معروف" or device2_specs.get("name").lower() == device2_name.lower():
-         device2_found = False
-         device2_specs = fallback_phone_data(device2_name) # Use fallback structure for consistent keys
-    else:
-         device2_found = True
+    # Ensure we always return a dictionary for device specs even if not found, for consistent frontend handling
+    if not device1_found:
+         device1_specs = fallback_phone_data(device1_name)
+    if not device2_found:
+         device2_specs = fallback_phone_data(device2_name)
+
 
     if not device1_found and not device2_found:
          message = f"لم يتم العثور على معلومات كافية عن الجهازين '{device1_name}' و '{device2_name}'. تم عرض معلومات افتراضية."
-         status = "error" # Consider "warning" or "partial_success" if you still show the empty boxes
+         status = "error" # Use error status when no real data is found for either
     elif not device1_found:
          message = f"لم يتم العثور على معلومات كافية عن الجهاز '{device1_name}'. تم عرض معلومات الجهاز الثاني فقط ومعلومات افتراضية للأول."
          status = "partial_success"
@@ -1020,10 +1039,10 @@ def api_compare_devices():
     })
 
 
-# @app.route('/audio-generator')
+@app.route('/audio-generator')
 # @login_required # Uncomment when Flask-Login is fully used
 def audio_generator():
-    """Audio generator page with TTS integration"""
+    """Render the Audio generator page with TTS integration."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -1045,7 +1064,7 @@ def audio_generator():
 @app.route('/api/text_to_speech', methods=['POST'])
 # @login_required # Uncomment when Flask-Login is fully used
 def api_text_to_speech():
-    """API endpoint to convert text to speech using TTS services"""
+    """API endpoint to convert text to speech using TTS services."""
     # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
@@ -1069,17 +1088,20 @@ def api_text_to_speech():
     # This function handles choosing the service and fallbacks internally
     tts_result = text_to_speech(text, voice_id=voice_id, tts_service=tts_service)
 
-    # Handle TTS failure (utils.text_to_speech should return browser fallback unless explicitly disabled)
+    # --- FIX: Handle case where text_to_speech returns None explicitly ---
+    # utils.text_to_speech should only return None if browser fallback is disabled AND all APIs fail.
+    # Given the current implementation, it should always return a dict (either API result or browser).
+    # However, defensive coding is good.
     if tts_result is None:
-         # This case should ideally only be reached if all API keys are missing AND browser fallback is somehow not an option
          logger.error(f"Final TTS failure after all attempts for text: {text[:50]}...")
+         # Return an error response indicating TTS failure
          return jsonify({
-              "status": "error",
+              "status": "error", # Indicate backend error status
               "message": "فشل توليد الصوت باستخدام جميع الخدمات المتاحة. يرجى التحقق من مفاتيح API لخدمات تحويل النص إلى كلام (ElevenLabs, VoiceRSS) أو إعدادات المتصفح.",
               "audio": None,
               "audio_type": None,
               "text_for_browser": None
-         }), 500
+         }), 500 # Use 500 status for backend processing failure
 
     # Return the result structure provided by utils.text_to_speech
     return jsonify({
@@ -1131,7 +1153,7 @@ def api_translate():
 @app.route('/settings')
 # @login_required # Uncomment when Flask-Login is fully used
 def settings():
-    """Settings page for API keys and speech recognition settings"""
+    """Settings page for API keys and speech recognition settings."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -1291,7 +1313,7 @@ def api_save_api_keys():
 @app.route('/phone-assistant')
 # @login_required # Uncomment when Flask-Login is fully used
 def phone_assistant():
-    """Phone recommendation assistant page"""
+    """Render the Phone recommendation assistant page."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -1301,7 +1323,7 @@ def phone_assistant():
 @app.route('/api/suggest_phone', methods=['POST'])
 # @login_required # Uncomment when Flask-Login is fully used
 def api_suggest_phone():
-    """API endpoint to suggest phones based on user requirements"""
+    """API endpoint to suggest phones based on user requirements."""
     # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
@@ -1327,7 +1349,7 @@ def api_suggest_phone():
 @app.route('/api/cheaper_alternative', methods=['POST'])
 # @login_required # Uncomment when Flask-Login is fully used
 def api_cheaper_alternative():
-    """API endpoint to get cheaper alternatives for a specific phone"""
+    """API endpoint to get cheaper alternatives for a specific phone."""
     # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
@@ -1404,7 +1426,7 @@ def api_advanced_comparison():
 @app.route('/voice_assistant')
 # @login_required # Uncomment when Flask-Login is fully used
 def voice_assistant():
-    """Voice assistant page with speech recognition and AI responses"""
+    """Render the Voice assistant page with speech recognition and AI responses."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
@@ -1529,7 +1551,7 @@ def api_voice_assistant():
 @app.route('/image-generator')
 # @login_required # Uncomment when Flask-Login is fully used
 def image_generator():
-    """Image generator page with Stability AI integration"""
+    """Render the Image generator page with Stability AI integration."""
     # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
