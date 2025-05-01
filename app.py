@@ -1,10 +1,10 @@
 import os
 import logging
-import uuid
-import json
-import requests
-import io
-import base64
+# import uuid # Not used in the current code
+import json # Used in json.dumps
+import requests # Used by local phone data functions
+# import io # Not used in the current code
+import base64 # Used by local phone data functions
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, send_file, flash
 from flask_session import Session
@@ -12,21 +12,32 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageDraw, ImageFont
+# from PIL import Image, ImageDraw, ImageFont # Not used in current code
+# No longer need urllib.parse.quote here if using utils.py functions correctly
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from urllib.parse import quote
+
 
 # --- Setup Logging ---
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Import Utility Functions ---
+# --- Import Utility Functions from utils.py ---
+# Import *all* necessary functions and keys here
 from utils import (
-    preprocess_arabic_text, text_to_speech, voicerss_text_to_speech,
-    call_openrouter_api, translate_text, generate_image
+    # preprocess_arabic_text, # REMOVED - use only within utils
+    text_to_speech, # Centralized TTS function
+    # voicerss_text_to_speech, # REMOVED - use only within text_to_speech
+    call_openrouter_api, # Centralized OpenRouter function
+    translate_text, # Centralized Translate function
+    generate_image, # Centralized Image Generation function
+    OPENROUTER_API_KEY, # Access keys loaded in utils module
+    ELEVENLABS_API_KEY,
+    STABILITY_API_KEY,
+    VOICERSS_API_KEY # Also import VoiceRSS key
 )
 
 # --- Import Phone Assistant Module ---
+# Assuming phone_assistant.py will also be refactored later to use utils
 from phone_assistant import suggest_phone, suggest_cheaper_alternative, get_advanced_comparison
 
 # --- Base Class for SQLAlchemy models ---
@@ -36,11 +47,13 @@ class Base(DeclarativeBase):
 # --- Initialize Flask app ---
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-app.secret_key = os.environ.get("SESSION_SECRET", "yasmain_ai_development_key")
+# Use a strong default or env var for secret key
+app.secret_key = os.environ.get("SESSION_SECRET", "yasmin_ai_default_development_key_CHANGE_ME")
 
 # --- Configure session to use filesystem ---
 app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_PERMANENT"] = False # Session expires when browser closes
+# Consider changing to True and setting SESSION_COOKIE_LIFETIME if persistent sessions are desired
 Session(app)
 
 # --- Configure SQLAlchemy ---
@@ -75,246 +88,40 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-# --- Load API Keys ---
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-STABILITY_API_KEY = os.environ.get("STABILITY_API_KEY")
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+# --- Database Models (placeholder - define in models.py) ---
+# from models import User, Message # Example import if models.py exists
 
 # Initialize flask-login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'index'
+login_manager.login_view = 'index' # Redirects unauthenticated users to the index page
 
+
+# User loader function for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
-    from models import User
-    return User.query.get(int(user_id))
+    # Placeholder: Replace with actual DB query once User model is defined and used
+    # from models import User
+    # return User.query.get(int(user_id))
+    logger.warning("load_user placeholder called. User model not implemented.")
+    return None # Return None if user cannot be loaded
+
 
 # --- Helper Functions ---
+# Keep specific app helpers, but remove general utility functions moved to utils.py
+
 def allowed_file(filename):
     """Check if uploaded file has an allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-def translate_text(text, target_lang):
-    """Translate text to target language using Google Translate"""
-    try:
-        from googletrans import Translator
-        translator = Translator()
-        result = translator.translate(text, dest=target_lang)
-        return result.text
-    except Exception as e:
-        logger.error(f"Error translating text: {e}")
-        return None
+# REMOVED duplicate preprocess_arabic_text
+# REMOVED duplicate text_to_speech
+# REMOVED duplicate call_openrouter_api
+# REMOVED duplicate translate_text
 
-def preprocess_arabic_text(text):
-    """
-    Preprocess Arabic text to improve pronunciation with ElevenLabs.
-    This helps improve the speech output quality for Arabic text.
-    
-    The preprocessing includes:
-    1. Adding appropriate breaks for punctuation
-    2. Handling special Arabic characters
-    3. Optimizing for better pronunciation
-    """
-    if not text or not text.strip():
-        return text
-    
-    # Add breaks after common punctuation marks to improve pacing
-    punctuation_marks = ['.', '؟', '!', ':', ';', '،']
-    for mark in punctuation_marks:
-        text = text.replace(mark, mark + '\n')
-    
-    # Split text into sentences (now split by newlines)
-    sentences = text.split('\n')
-    processed = []
-    
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if not sentence:
-            continue
-            
-        # For very long sentences, add additional pauses at commas for better pacing
-        if len(sentence) > 100:
-            parts = sentence.split('،')
-            formatted_parts = []
-            for part in parts:
-                part = part.strip()
-                if part:
-                    formatted_parts.append(part)
-            sentence = '،\n'.join(formatted_parts)
-        
-        processed.append(sentence)
-    
-    # Join processed sentences
-    return '\n'.join(processed)
-
-def text_to_speech(text, voice_id="EXAVITQu4vr4xnSDxMaL"):
-    """
-    Convert text to speech using ElevenLabs API.
-    Optimized for Arabic language with enhanced processing and error handling.
-    """
-    if not ELEVENLABS_API_KEY:
-        logger.warning("ELEVENLABS_API_KEY environment variable is not set. Text-to-speech functionality won't work.")
-        return None
-
-    # Validate input
-    if not text or not text.strip():
-        logger.warning("Empty text provided to text_to_speech")
-        return None
-
-    # Preprocess Arabic text to improve pronunciation
-    processed_text = preprocess_arabic_text(text)
-    
-    # Log the processed text for debugging
-    logger.info(f"Processed text for TTS: {processed_text[:100]}..." if len(processed_text) > 100 else processed_text)
-
-    # ElevenLabs API endpoint
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-
-    # Set the headers with API key
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": ELEVENLABS_API_KEY
-    }
-
-    # Build the request payload with optimized settings for Arabic
-    payload = {
-        "text": processed_text,
-        "model_id": "eleven_multilingual_v2",  # Use the multilingual model for better language support
-        "voice_settings": {
-            "stability": 0.8,            # Increased stability for clearer Arabic pronunciation
-            "similarity_boost": 0.8,     # Increased similarity for more consistent voice
-            "style": 0.45,               # Slightly reduced style interpolation for Arabic
-            "use_speaker_boost": True    # Enhance speaker clarity
-        }
-    }
-
-    try:
-        # Make the API request with increased timeout for longer texts
-        max_timeout = 60 if len(processed_text) > 500 else 30
-        logger.info(f"Calling ElevenLabs API with voice {voice_id}, timeout {max_timeout}s")
-        
-        response = requests.post(url, headers=headers, json=payload, timeout=max_timeout)
-
-        if response.status_code == 200:
-            logger.info("ElevenLabs API request successful")
-            return response.content
-        else:
-            logger.error(f"ElevenLabs API error: {response.status_code} - {response.text}")
-            
-            # Try one more time with different model if first attempt failed
-            if "model_id" in payload and payload["model_id"] == "eleven_multilingual_v2":
-                logger.info("Retrying with eleven_turbo model...")
-                payload["model_id"] = "eleven_turbo"
-                response = requests.post(url, headers=headers, json=payload, timeout=max_timeout)
-                
-                if response.status_code == 200:
-                    logger.info("ElevenLabs API retry successful with eleven_turbo model")
-                    return response.content
-            
-            return None
-
-    except requests.exceptions.Timeout:
-        logger.error("ElevenLabs API request timed out. Text might be too long.")
-        # Try with shorter text
-        if len(processed_text) > 300:
-            shorter_text = processed_text[:300] + "..."
-            logger.info(f"Retrying with shorter text: {shorter_text[:50]}...")
-            payload["text"] = shorter_text
-            try:
-                response = requests.post(url, headers=headers, json=payload, timeout=30)
-                if response.status_code == 200:
-                    return response.content
-                else:
-                    logger.error(f"Retry failed: {response.status_code} - {response.text}")
-            except Exception as e:
-                logger.error(f"Error in retry attempt: {e}")
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error calling ElevenLabs API: {e}")
-        return None
-
-def call_openrouter_api(messages, model="openai/gpt-3.5-turbo", temperature=0.7, max_tokens=1000):
-    """
-    Call the OpenRouter API to generate a response
-    Support for Gemini 1.5, Gemini Pro, Claude and GPT-4 models
-    """
-    if not OPENROUTER_API_KEY:
-        logger.warning("OpenRouter API key not found, returning fallback response")
-        return None
-
-    # API endpoint
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    # Convert our messages to the correct format
-    formatted_messages = []
-
-    # Add system instruction optimized for Arabic responses if not present
-    has_system_message = any(msg.get("role") == "system" for msg in messages)
-    if not has_system_message:
-        formatted_messages.append({
-            "role": "system",
-            "content": "أنت مساعد ذكي ومفيد باللغة العربية اسمه ياسمين. أجب دائماً باللغة العربية الفصحى ما لم يطلب المستخدم لغة أخرى. قدم معلومات دقيقة وشاملة. تجنب الإجابات الطويلة جداً. اليوم هو 30 أبريل 2025."
-        })
-
-    # Add the user messages
-    for msg in messages:
-        # Ensure roles are correctly formatted for OpenRouter
-        role = msg["role"]
-        formatted_messages.append({
-            "role": role,
-            "content": msg["content"]
-        })
-
-    # Special handling for Gemini models
-    is_gemini = "gemini" in model.lower()
-
-    # Build the request payload
-    payload = {
-        "model": model,
-        "messages": formatted_messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens
-    }
-
-    # Add Gemini specific parameters if using a Gemini model
-    if is_gemini:
-        payload["top_p"] = 0.95
-        payload["top_k"] = 40
-
-    # Set the headers with API key
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": "https://yasmin-chat.app",
-        "X-Title": "Yasmin Chat App"
-    }
-
-    try:
-        # Make the API request
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
-
-        if response.status_code == 200:
-            # Parse the response JSON
-            response_data = response.json()
-
-            # Extract the generated text
-            if "choices" in response_data and len(response_data["choices"]) > 0:
-                return response_data["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"Invalid response format from OpenRouter: {response_data}")
-                return None
-        else:
-            logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
-            return None
-
-    except Exception as e:
-        logger.error(f"Error calling OpenRouter API: {e}")
-        return None
 
 # --- Fallback responses (for when APIs fail) ---
+# Keep these as app-specific fallback messages
 offline_responses = {
     "السلام عليكم": "وعليكم السلام! أنا ياسمين. للأسف، لا يوجد اتصال بالإنترنت حالياً.",
     "كيف حالك": "أنا بخير شكراً لك. لكن لا يمكنني الوصول للنماذج الذكية الآن بسبب انقطاع الإنترنت.",
@@ -324,56 +131,80 @@ offline_responses = {
 }
 default_offline_response = "أعتذر، لا يمكنني معالجة طلبك الآن. يبدو أن هناك مشكلة في الاتصال بالإنترنت أو بخدمات الذكاء الاصطناعي."
 
-# Mock AI Assistant Data - In a real application, this would come from a database
+# Mock AI Assistant / Feature Data - In a real application, this would come from a database
 ASSISTANTS = [
+    {
+        "id": "general",
+        "name": "مساعد عام",
+        "avatar": "https://images.unsplash.com/photo-1717501218636-a390f9ac5957?w=64&h=64&fit=crop&auto=format",
+        "description": "للدردشة العامة والاستفسارات المتنوعة",
+        "color": "linear-gradient(135deg, #10a37f, #0a8263)",
+        "model": "openai/gpt-3.5-turbo" # Default model for general chat
+    },
     {
         "id": "gpt4o",
         "name": "GPT-4o",
-        "avatar": "https://images.unsplash.com/photo-1717501218636-a390f9ac5957",
+        "avatar": "https://images.unsplash.com/photo-1717501218636-a390f9ac5957?w=64&h=64&fit=crop&auto=format",
         "description": "معالجة متقدمة للغة الطبيعية",
-        "color": "linear-gradient(135deg, #10a37f, #0a8263)"
+        "color": "linear-gradient(135deg, #10a37f, #0a8263)",
+        "model": "openai/gpt-4o"
     },
     {
         "id": "claude",
         "name": "Claude 3.5",
-        "avatar": "https://images.unsplash.com/photo-1717501218385-55bc3a95be94",
+        "avatar": "https://images.unsplash.com/photo-1717501218385-55bc3a95be94?w=64&h=64&fit=crop&auto=format",
         "description": "تفكير متعمق وتحليل شامل",
-        "color": "linear-gradient(135deg, #9a48d0, #7a3aa4)"
+        "color": "linear-gradient(135deg, #9a48d0, #7a3aa4)",
+         "model": "anthropic/claude-3-5-sonnet" # Using Sonnet as it's faster/cheaper than Opus
     },
     {
         "id": "gemini",
         "name": "Gemini 1.5",
-        "avatar": "https://images.unsplash.com/photo-1612066473428-fb6833a0d855",
+        "avatar": "https://images.unsplash.com/photo-1612066473428-fb6833a0d855?w=64&h=64&fit=crop&auto=format",
         "description": "فهم متعدد الوسائط",
-        "color": "linear-gradient(135deg, #4285f4, #0f9d58)"
+        "color": "linear-gradient(135deg, #4285f4, #0f9d58)",
+        "model": "google/gemini-pro" # Or gemini-1.5-pro-flash
     },
+    # Features that link to separate pages
     {
-        "id": "elevenlabs",
-        "name": "ElevenLabs",
-        "avatar": "https://images.unsplash.com/photo-1616161560417-66d4db5892ec",
+        "id": "voice_assistant_feature",
+        "name": "المساعد الصوتي",
+        "avatar": "https://images.unsplash.com/photo-1693722339588-66e64f8fd48a?w=64&h=64&fit=crop&auto=format",
+        "description": "تحدث إلى المساعد الذكي باللغة العربية",
+        "color": "linear-gradient(135deg, #e67e22, #d35400)",
+        "url": "/voice_assistant" # Link to the voice assistant page
+    },
+     {
+        "id": "audio_generator_feature",
+        "name": "توليد الصوت",
+        "avatar": "https://images.unsplash.com/photo-1616161560417-66d4db5892ec?w=64&h=64&fit=crop&auto=format",
         "description": "تحويل نص لصوت طبيعي",
-        "color": "linear-gradient(135deg, #ff5757, #c43a3a)"
+        "color": "linear-gradient(135deg, #ff5757, #c43a3a)",
+        "url": "/audio-generator" # Link to audio generator page
     },
     {
-        "id": "openrouter",
-        "name": "OpenRouter",
-        "avatar": "https://images.unsplash.com/photo-1655393001768-d946c97d6fd1",
-        "description": "توجيه ذكي للنماذج المختلفة",
-        "color": "linear-gradient(135deg, #ff9e00, #d9840c)"
+        "id": "tech_compare_feature",
+        "name": "مقارنة الأجهزة",
+        "avatar": "https://images.unsplash.com/photo-1530545002211-21753020f4c8?w=64&h=64&fit=crop&auto=format",
+        "description": "مقارنة مواصفات الهواتف الذكية",
+        "color": "linear-gradient(135deg, #4a69bd, #3a59ad)",
+        "url": "/compare" # Link to compare page
     },
-    {
-        "id": "techcompare",
-        "name": "TechCompare",
-        "avatar": "https://images.unsplash.com/photo-1530545002211-21753020f4c8",
-        "description": "مقارنة الأجهزة التقنية",
-        "color": "linear-gradient(135deg, #4a69bd, #3a59ad)"
-    },
-    {
-        "id": "phoneassistant",
+     {
+        "id": "phone_assistant_feature",
         "name": "مساعد الهواتف",
-        "avatar": "https://images.unsplash.com/photo-1599317193916-7bb9b7b7e744",
+        "avatar": "https://images.unsplash.com/photo-1599317193916-7bb9b7b7e744?w=64&h=64&fit=crop&auto=format",
         "description": "اقتراح الهاتف المناسب لمتطلباتك",
-        "color": "linear-gradient(135deg, #fd1d1d, #f77062)"
+        "color": "linear-gradient(135deg, #fd1d1d, #f77062)",
+        "url": "/phone-assistant" # Link to phone assistant page
+    },
+     {
+        "id": "image_generator_feature", # New feature entry for image generation
+        "name": "توليد الصور",
+        "avatar": "https://images.unsplash.com/photo-1579546998516-e0d3cd0e3d4b?w=64&h=64&fit=crop&auto=format", # Abstract/creative image
+        "description": "إنشاء صور من وصف نصي",
+        "color": "linear-gradient(135deg, #3498db, #2980b9)",
+        "url": "/image-generator" # Link to image generator page
     }
 ]
 
@@ -382,156 +213,192 @@ SUGGESTED_QUESTIONS = []
 
 @app.route('/')
 def index():
+    # Redirect to features_hub if already logged in (username in session)
+    # Consider using current_user.is_authenticated with Flask-Login for proper auth check
+    if 'username' in session:
+         return redirect(url_for('features_hub'))
     return render_template('welcome.html')
 
-@app.route('/features')
+# Add Flask-Login protection to sensitive routes
+# @app.route('/features')
+# @login_required # Uncomment when Flask-Login is fully used
 def features_hub():
-    # Check if user has a name stored in session
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    return render_template('features_hub.html', 
+
+    # Separate chat bots from features for display flexibility if needed,
+    # but current template structure iterates through all ASSISTANTS
+
+    return render_template('features_hub.html',
                           username=session.get('username', ''),
                           assistants=ASSISTANTS)
 
-@app.route('/chat/<assistant_id>')
+
+# @app.route('/chat/<assistant_id>')
+# @login_required # Uncomment when Flask-Login is fully used
 def chat(assistant_id):
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    # Find the selected assistant
-    assistant = next((a for a in ASSISTANTS if a['id'] == assistant_id), ASSISTANTS[0])
-    
-    return render_template('chat.html', 
+
+    # Find the selected assistant configuration
+    assistant_config = next((a for a in ASSISTANTS if a['id'] == assistant_id), None)
+
+    # If assistant ID not found or is a feature link, default to general chat config
+    if not assistant_config or "model" not in assistant_config:
+        logger.warning(f"Chat assistant ID '{assistant_id}' config not found or not a chat bot. Defaulting to general.")
+        assistant_config = next((a for a in ASSISTANTS if a['id'] == 'general' and "model" in a), None)
+        # Final fallback if even general config is missing or not a chat model
+        if not assistant_config:
+             return "Error: Default chat assistant configuration not found.", 500
+        # Update assistant_id for the template in case it defaulted
+        assistant_id = assistant_config['id']
+
+
+    return render_template('chat.html',
                           username=session.get('username', ''),
-                          assistant=assistant,
+                          assistant=assistant_config, # Pass the found/default config
                           suggested_questions=SUGGESTED_QUESTIONS)
 
-@app.route('/compare')
+
+# @app.route('/compare')
+# @login_required # Uncomment when Flask-Login is fully used
 def compare():
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    return render_template('compare.html', 
+
+    return render_template('compare.html',
                           username=session.get('username', ''))
 
+
 @app.route('/api/save_username', methods=['POST'])
+# NOTE: This should ideally integrate with Flask-Login and potentially database User model
 def save_username():
     data = request.get_json()
     username = data.get('username', '').strip()
-    
+
     if not username:
         return jsonify({"status": "error", "message": "اسم المستخدم مطلوب"}), 400
-    
-    # Store username in session
+
+    # Store username in session (temporary login state)
     session['username'] = username
+    # In a real app, create/get user, then login_user(user)
+
     return jsonify({"status": "success", "redirect": url_for('features_hub')})
 
+
 @app.route('/api/logout', methods=['POST'])
+# @login_required # Add this decorator when Flask-Login is fully implemented
 def logout():
+    # Logout the user if Flask-Login is used
+    # logout_user() # Uncomment when Flask-Login is fully used
     # Clear the session
     session.clear()
     return jsonify({"status": "success", "redirect": url_for('index')})
 
+
 @app.route('/api/chat_message', methods=['POST'])
-def chat_message():
+# @login_required # Add this decorator when Flask-Login is fully implemented
+def api_chat_message():
+    # Manual session check for now
     if 'username' not in session:
+        # Also check with Flask-Login: if not current_user.is_authenticated: ...
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
     message = data.get('message', '').strip()
-    assistant_id = data.get('assistant_id', '')
-    
+    assistant_id = data.get('assistant_id', 'general') # Default to 'general'
+
     if not message:
         return jsonify({"status": "error", "message": "الرسالة مطلوبة"}), 400
-    
-    # Find the selected assistant
-    assistant = next((a for a in ASSISTANTS if a['id'] == assistant_id), ASSISTANTS[0])
-    
+
+    # Find the selected assistant configuration
+    assistant_config = next((a for a in ASSISTANTS if a['id'] == assistant_id and "model" in a), None)
+
+    # Fallback to general assistant if ID is invalid or not a chat model
+    if not assistant_config:
+        logger.warning(f"Chat assistant ID '{assistant_id}' config not found or not a chat bot. Defaulting to general.")
+        assistant_config = next((a for a in ASSISTANTS if a['id'] == 'general' and "model" in a), None)
+        if not assistant_config:
+             return jsonify({"status": "error", "message": "لا يمكن العثور على إعدادات المساعد المطلوب أو المساعد العام."}), 500
+        assistant_id = assistant_config['id'] # Update ID in case it was invalid
+
+    model = assistant_config['model']
+
     # Create message object for API calls
+    # In a real app, fetch previous messages from DB for context
     messages = [{"role": "user", "content": message}]
-    
-    # Get AI response based on assistant type
-    if assistant_id == "gpt4o":
-        # Use OpenRouter with GPT-4o model
-        if OPENROUTER_API_KEY:
-            ai_response = call_openrouter_api(
-                messages, 
-                model="openai/gpt-4o", 
-                temperature=0.7, 
-                max_tokens=2000
-            )
+
+    # Define system message based on assistant type (optional, can be more specific than the default in utils)
+    # The default in utils.call_openrouter_api is: "أنت مساعد ذكي ومفيد باللغة العربية..."
+    # We can provide a *different* system_message here if we want to override that default for THIS call.
+    # If system_message=None, utils will use its default.
+    system_instruction = None
+    if assistant_id == "phone_expert": # Example of a hypothetical expert assistant
+         system_instruction = "You are an expert in mobile phone technology. Provide detailed and accurate information."
+
+    # Use the centralized OpenRouter API call from utils.py
+    # Pass the specific system message as a parameter if defined, otherwise utils uses its default
+    ai_response = call_openrouter_api(
+        messages,
+        model=model,
+        temperature=0.7, # Can make temperature model-specific in ASSISTANTS config
+        max_tokens=2000, # Can make max_tokens model-specific
+        system_message=system_instruction # Pass specific instruction if needed, or None
+    )
+
+    # Handle API failure (call_openrouter_api from utils returns an error string or None)
+    if ai_response is None or "حدث خطأ" in ai_response or "عذراً" in ai_response:
+        # Check if it's a specific error from utils or a general failure
+        if ai_response is None:
+             ai_response = "عذراً، لم أتمكن من الحصول على رد من نموذج الذكاء الاصطناعي."
+        elif not OPENROUTER_API_KEY:
+             ai_response = f"عذراً {session.get('username', '')}، لا يمكنني الوصول إلى نماذج الذكاء الاصطناعي حالياً (مفتاح OpenRouter غير متوفر)."
+        # Use a simple fallback response if API call completely failed or returned a generic error message from utils
         else:
-            ai_response = f"مرحباً {session['username']}! أنا GPT-4o. للأسف، لا يمكنني الوصول إلى OpenRouter API حالياً. يمكنك تقديم مفتاح API لتفعيل الخدمة الكاملة."
-    
-    elif assistant_id == "claude":
-        # Use OpenRouter with Claude model
-        if OPENROUTER_API_KEY:
-            ai_response = call_openrouter_api(
-                messages, 
-                model="anthropic/claude-3-opus", 
-                temperature=0.7, 
-                max_tokens=2000
-            )
-        else:
-            ai_response = f"أهلاً {session['username']}، أنا Claude 3.5. للأسف، لا يمكنني الوصول إلى OpenRouter API حالياً. يمكنك تقديم مفتاح API لتفعيل الخدمة الكاملة."
-    
-    elif assistant_id == "gemini":
-        # Use OpenRouter with Gemini model (via Claude as fallback)
-        if OPENROUTER_API_KEY:
-            ai_response = call_openrouter_api(
-                messages, 
-                model="anthropic/claude-3-opus", 
-                temperature=0.7, 
-                max_tokens=2000
-            )
-        else:
-            ai_response = f"مرحباً {session['username']}! Gemini 1.5 هنا. للأسف، لا يمكنني الوصول إلى OpenRouter API حالياً. يمكنك تقديم مفتاح API لتفعيل الخدمة الكاملة."
-    
-    elif assistant_id == "elevenlabs":
-        # Special handler for text-to-speech requests
-        if ELEVENLABS_API_KEY:
-            # For demonstration we're returning a descriptive response
-            ai_response = f"أهلاً {session['username']}، هذا ElevenLabs. تم استلام نصك: '{message}'. يمكنني تحويل هذا النص إلى صوت عربي طبيعي."
-            
-            # In a full implementation, we would generate audio and return a URL or audio data
-            # audio_content = text_to_speech(message)
-            # Then store it or return it directly
-        else:
-            ai_response = f"أهلاً {session['username']}، هذا ElevenLabs. للأسف، لا يمكنني الوصول إلى ElevenLabs API حالياً. يمكنك تقديم مفتاح API لتفعيل خدمة تحويل النص إلى صوت."
-    
-    else:  # Default for openrouter or other assistants
-        if OPENROUTER_API_KEY:
-            ai_response = call_openrouter_api(
-                messages, 
-                model="openai/gpt-3.5-turbo", 
-                temperature=0.7, 
-                max_tokens=1000
-            )
-        else:
-            # Use a simple fallback if no API key available
+            # Attempt basic offline response lookup as a last resort
+            fallback_found = False
             for key, value in offline_responses.items():
                 if key in message.lower():
                     ai_response = value
+                    fallback_found = True
                     break
-            else:
-                ai_response = default_offline_response
-    
+            if not fallback_found:
+                ai_response = default_offline_response + " (سبب إضافي: فشل استدعاء API)." # Append API error if not a basic chat
+
+        # Optionally log the specific error from utils if it wasn't a simple "key not found"
+        if "حدث خطأ" in ai_response or "استغرق الرد" in ai_response:
+             logger.error(f"Failed AI response for assistant {assistant_id}: {ai_response}")
+
+
     # Get current timestamp in Arabic format
     now = datetime.now()
     arabic_timestamp = now.strftime("%Y/%m/%d %I:%M %p").replace("AM", "ص").replace("PM", "م")
-    
+
     # Store message in the database (in a complete implementation)
-    # In this demo, we'll skip the actual DB storage
-    
+    # from models import Message
+    # user_id = current_user.id # Get user ID from Flask-Login
+    # NewMessage = Message(user_id=user_id, assistant_id=assistant_id, user_content=message, ai_content=ai_response, timestamp=now)
+    # db.session.add(NewMessage)
+    # db.session.commit()
+
+
     return jsonify({
-        "status": "success", 
+        "status": "success", # Still return success status even on API error, but put error in response text
         "response": ai_response,
         "timestamp": arabic_timestamp
     })
 
-# Phone data retrieval and comparison
-import requests
+
+# --- Phone data retrieval and comparison functions ---
+# These functions are NOT duplicated in utils.py in the provided code, so they remain here.
+# They use the external Mobile Specs API.
+# The suggest_phone, suggest_cheaper_alternative, get_advanced_comparison in phone_assistant.py
+# *do* use call_openrouter_api. They should be refactored in phone_assistant.py later to use utils.
+
+import requests # Keep requests import as these local functions use it directly
 
 def fetch_phone_data(phone_id):
     """
@@ -542,14 +409,14 @@ def fetch_phone_data(phone_id):
         # Use the free Mobile Specs API to get phone data
         url = f"https://api-mobilespecs.azharimm.dev/v2/brands/{phone_id}"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             return response.json()
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
+            logger.error(f"Mobile Specs API error (brands): {response.status_code} - {response.text}")
             return None
     except Exception as e:
-        logger.error(f"Error fetching phone data: {e}")
+        logger.error(f"Error fetching phone brands data: {e}")
         return None
 
 def get_phone_brands():
@@ -557,7 +424,7 @@ def get_phone_brands():
     try:
         url = "https://api-mobilespecs.azharimm.dev/v2/brands"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             # Extract brand info with Arabic names where possible
@@ -572,10 +439,10 @@ def get_phone_brands():
                 })
             return brands
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
+            logger.error(f"Mobile Specs API error (brands list): {response.status_code} - {response.text}")
             return []
     except Exception as e:
-        logger.error(f"Error fetching phone brands: {e}")
+        logger.error(f"Error fetching phone brands list: {e}")
         return []
 
 def get_phones_by_brand(brand_id):
@@ -583,15 +450,15 @@ def get_phones_by_brand(brand_id):
     try:
         url = f"https://api-mobilespecs.azharimm.dev/v2/brands/{brand_id}"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             return data.get('data', {}).get('phones', [])
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
+            logger.error(f"Mobile Specs API error (phones by brand {brand_id}): {response.status_code} - {response.text}")
             return []
     except Exception as e:
-        logger.error(f"Error fetching phones by brand: {e}")
+        logger.error(f"Error fetching phones by brand {brand_id}: {e}")
         return []
 
 def get_phone_details(phone_slug):
@@ -599,21 +466,25 @@ def get_phone_details(phone_slug):
     try:
         url = f"https://api-mobilespecs.azharimm.dev/v2/{phone_slug}"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             # Process and translate specifications to Arabic
             specs = data.get('data', {}).get('specifications', [])
             arabic_specs = process_and_translate_specs(specs)
-            
+
             # Add the processed specs back to data
-            data['data']['arabic_specs'] = arabic_specs
-            return data.get('data', {})
+            if 'data' in data:
+                data['data']['arabic_specs'] = arabic_specs
+                return data.get('data', {})
+            else:
+                 logger.error(f"Mobile Specs API did not return 'data' key for {phone_slug}: {data}")
+                 return None
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
+            logger.error(f"Mobile Specs API error (details for {phone_slug}): {response.status_code} - {response.text}")
             return None
     except Exception as e:
-        logger.error(f"Error fetching phone details: {e}")
+        logger.error(f"Error fetching phone details for {phone_slug}: {e}")
         return None
 
 def get_latest_phones():
@@ -621,12 +492,12 @@ def get_latest_phones():
     try:
         url = "https://api-mobilespecs.azharimm.dev/v2/latest"
         response = requests.get(url, timeout=10)
-        
+
         if response.status_code == 200:
             data = response.json()
             return data.get('data', {}).get('phones', [])
         else:
-            logger.error(f"API error: {response.status_code} - {response.text}")
+            logger.error(f"Mobile Specs API error (latest phones): {response.status_code} - {response.text}")
             return []
     except Exception as e:
         logger.error(f"Error fetching latest phones: {e}")
@@ -655,12 +526,13 @@ def get_arabic_brand_name(brand_name):
     }
     return arabic_brands.get(brand_name, brand_name)
 
+# process_and_translate_specs and extract_key_phone_specs remain here as they process Mobile Specs API data
 def process_and_translate_specs(specs):
     """
     Process and translate phone specifications to Arabic
     """
     arabic_specs = {}
-    
+
     # Translation mapping for common specification titles
     title_translations = {
         "Network": "الشبكة",
@@ -678,29 +550,29 @@ def process_and_translate_specs(specs):
         "Misc": "متفرقات",
         "Tests": "الاختبارات"
     }
-    
+
     # Process each specification group
     for spec in specs:
         title = spec.get('title', '')
         arabic_title = title_translations.get(title, title)
-        
+
         spec_items = []
         for item in spec.get('specs', []):
             key = item.get('key', '')
             values = item.get('val', [])
-            
+
             if isinstance(values, list):
                 value_str = ', '.join(values)
             else:
                 value_str = str(values)
-                
+
             spec_items.append({
                 'key': key,
                 'value': value_str
             })
-        
+
         arabic_specs[arabic_title] = spec_items
-    
+
     return arabic_specs
 
 def extract_key_phone_specs(phone_details):
@@ -726,11 +598,11 @@ def extract_key_phone_specs(phone_details):
             "fast_charging": "غير معروف",
             "rating": "غير معروف"
         }
-    
+
     # Initialize with default structure
     key_specs = {
         "name": phone_details.get('phone_name', 'غير معروف'),
-        "brand": "غير معروف",
+        "brand": "غير معروف", # Will attempt to extract below
         "os": "غير معروف",
         "display": "غير معروف",
         "processor": "غير معروف",
@@ -740,586 +612,898 @@ def extract_key_phone_specs(phone_details):
         "storage": "غير معروف",
         "network": "غير معروف",
         "release_date": "غير معروف",
-        "price": "غير معروف",
-        "image": phone_details.get('phone_images', [''])[0] if phone_details.get('phone_images') else "",
+        "price": "غير معروف", # Price is not usually in Mobile Specs API
+        "image": phone_details.get('phone_images', [''])[0] if phone_details.get('phone_images') else "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=880&auto=format&fit=crop",
         "nfc": "غير معروف",
         "fast_charging": "غير معروف",
-        "rating": "غير معروف"
+        "rating": "غير معروف" # Rating is not in Mobile Specs API
     }
-    
+
     # Extract brand from name if available
-    if ' ' in key_specs['name']:
-        key_specs['brand'] = key_specs['name'].split(' ')[0]
-    
+    # This is heuristic and might not always work perfectly
+    name_parts = key_specs['name'].split(' ')
+    if name_parts:
+        # Try to match the first word(s) with known brands
+        brands = get_phone_brands() # Get full list for matching
+        brand_names = {b['brand_name'].lower() for b in brands}
+        current_brand_guess = ""
+        for part in name_parts:
+             test_guess = (current_brand_guess + " " + part).strip()
+             if test_guess.lower() in brand_names:
+                  current_brand_guess = test_guess
+             else:
+                  # If adding the next part doesn't make a known brand, stop
+                  if current_brand_guess: # Use the last valid guess
+                       key_specs['brand'] = current_brand_guess
+                       break # Stop processing name parts
+                  # If no guess yet, check the current part itself
+                  elif part.lower() in brand_names:
+                       key_specs['brand'] = part
+                       break
+                  else:
+                       break # Stop if current part is not a brand start
+
+        if key_specs['brand'] == 'غير معروف' and name_parts:
+             # Default to the first word if no brand matched
+             key_specs['brand'] = name_parts[0]
+
     # Process Arabic specs if available
     arabic_specs = phone_details.get('arabic_specs', {})
-    
+
     # Extract Platform/OS info
-    if 'نظام التشغيل' in arabic_specs:
-        for item in arabic_specs['نظام التشغيل']:
-            if 'OS' in item['key']:
-                key_specs['os'] = item['value']
-            elif 'Chipset' in item['key']:
-                key_specs['processor'] = item['value']
-    
+    platform_specs = arabic_specs.get('نظام التشغيل', [])
+    for item in platform_specs:
+        if 'OS' in item['key']:
+            key_specs['os'] = item['value']
+        elif 'Chipset' in item['key']:
+            key_specs['processor'] = item['value']
+
     # Extract Display info
-    if 'الشاشة' in arabic_specs:
-        for item in arabic_specs['الشاشة']:
-            if 'Size' in item['key']:
-                display_info = item['value']
-                if 'Resolution' in item['key']:
-                    display_info += f", {item['value']}"
-                key_specs['display'] = display_info
-    
+    display_specs = arabic_specs.get('الشاشة', [])
+    display_info_parts = []
+    for item in display_specs:
+         if 'Size' in item['key']:
+              display_info_parts.append(item['value'])
+         elif 'Resolution' in item['key']:
+              display_info_parts.append(item['value'])
+         elif 'Type' in item['key']:
+              display_info_parts.append(item['value'])
+
+    if display_info_parts:
+         key_specs['display'] = ', '.join(display_info_parts)
+
+
     # Extract Memory info
-    if 'الذاكرة' in arabic_specs:
-        for item in arabic_specs['الذاكرة']:
-            if 'RAM' in item['key'] or 'Internal' in item['key']:
-                key_specs['ram'] = item['value']
-                key_specs['storage'] = item['value']
-    
+    memory_specs = arabic_specs.get('الذاكرة', [])
+    ram_info = []
+    storage_info = []
+    for item in memory_specs:
+        if 'RAM' in item['key']:
+            ram_info.append(item['value'])
+        if 'Internal' in item['key']:
+            storage_info.append(item['value'])
+
+    if ram_info:
+         key_specs['ram'] = ', '.join(ram_info)
+    if storage_info:
+         key_specs['storage'] = ', '.join(storage_info)
+
+
     # Extract Main Camera info
-    if 'الكاميرا الخلفية' in arabic_specs:
-        camera_specs = []
-        for item in arabic_specs['الكاميرا الخلفية']:
-            camera_specs.append(item['value'])
-        
-        if camera_specs:
-            key_specs['camera'] = ', '.join(camera_specs)
-    
+    camera_specs_list = arabic_specs.get('الكاميرا الخلفية', [])
+    camera_info_parts = [item['value'] for item in camera_specs_list if item.get('value')]
+    if camera_info_parts:
+        key_specs['camera'] = ', '.join(camera_info_parts)
+
     # Extract Battery info
-    if 'البطارية' in arabic_specs:
-        for item in arabic_specs['البطارية']:
-            if 'Type' in item['key']:
-                key_specs['battery'] = item['value']
-            elif 'Charging' in item['key'] and 'fast' in item['value'].lower():
-                key_specs['fast_charging'] = 'نعم'
-    
+    battery_specs = arabic_specs.get('البطارية', [])
+    battery_info_parts = []
+    for item in battery_specs:
+        if 'Type' in item['key']:
+            battery_info_parts.append(item['value'])
+        elif 'Charging' in item['key']:
+            charging_value = item['value']
+            battery_info_parts.append(f"شحن: {charging_value}")
+            if 'fast' in charging_value.lower() or 'watt' in charging_value.lower():
+                 key_specs['fast_charging'] = 'نعم'
+
+    if battery_info_parts:
+         key_specs['battery'] = ', '.join(battery_info_parts)
+
+
     # Extract Network info
-    if 'الشبكة' in arabic_specs:
-        for item in arabic_specs['الشبكة']:
-            if '5G' in item['value']:
-                key_specs['network'] = '5G'
-            elif '4G' in item['value'] and key_specs['network'] == 'غير معروف':
-                key_specs['network'] = '4G'
-    
+    network_specs = arabic_specs.get('الشبكة', [])
+    network_types = []
+    for item in network_specs:
+        if 'Technology' in item['key']:
+            network_types = item['value'].split(', ')
+            break # Assuming Technology key lists major types
+
+    if '5G' in network_types:
+        key_specs['network'] = '5G'
+    elif 'LTE' in network_types or '4G' in network_types:
+        key_specs['network'] = '4G'
+    elif '3G' in network_types:
+         key_specs['network'] = '3G'
+    else:
+         key_specs['network'] = 'غير معروف'
+
+
     # Extract Release date
-    if 'تاريخ الإصدار' in arabic_specs:
-        for item in arabic_specs['تاريخ الإصدار']:
-            if 'Status' in item['key'] or 'Announced' in item['key']:
-                key_specs['release_date'] = item['value']
-    
+    launch_specs = arabic_specs.get('تاريخ الإصدار', [])
+    for item in launch_specs:
+        if 'Status' in item['key']:
+            key_specs['release_date'] = item['value']
+            break # Assuming Status has the most relevant date
+
     # Extract NFC
-    if 'الاتصالات' in arabic_specs:
-        for item in arabic_specs['الاتصالات']:
-            if 'NFC' in item['key'] and 'Yes' in item['value']:
-                key_specs['nfc'] = 'نعم'
-    
-    # Provide a default rating
-    key_specs['rating'] = '4.2/5'
-    
+    comms_specs = arabic_specs.get('الاتصالات', [])
+    for item in comms_specs:
+        if 'NFC' in item['key'] and 'Yes' in item['value']:
+            key_specs['nfc'] = 'نعم'
+            break
+
+    # Provide a default rating (as API doesn't provide it)
+    key_specs['rating'] = '4.2/5 (تقييم افتراضي)' # Indicate it's default
+
+
+    # Clean up image URL if it's empty after extraction
+    if not key_specs['image']:
+         key_specs['image'] = "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=880&auto=format&fit=crop"
+
+
     return key_specs
 
 # Phone comparison function for API endpoint
 def find_phone_match(query):
     """Find phone that matches the query using API data"""
     # Try to find exact match first
+    # This logic is kept as is, it relies on the Mobile Specs API
     brand_matches = []
-    
+
     # Get all brands
     brands = get_phone_brands()
+    brand_slug_map = {b['brand_slug']: b['brand_name'] for b in brands}
+
+    # Simple search by brand slug or name in query
+    query_lower = query.lower()
+    potential_brand_slugs = []
+
     for brand in brands:
-        brand_name = brand.get('brand_name', '').lower()
-        if brand_name in query.lower():
-            brand_matches.append(brand)
-    
-    # If we found brand matches, search for phones in those brands
-    if brand_matches:
-        for brand in brand_matches:
-            phones = get_phones_by_brand(brand.get('brand_id'))
-            
-            for phone in phones:
-                phone_name = phone.get('phone_name', '').lower()
-                if query.lower() in phone_name or any(word in phone_name for word in query.lower().split()):
-                    # Get detailed specs for this phone
+        brand_name_lower = brand.get('brand_name', '').lower()
+        brand_slug_lower = brand.get('brand_slug', '').lower()
+
+        # Check for brand name or slug as a full word or partial
+        if brand_slug_lower in query_lower.split() or brand_name_lower in query_lower:
+             potential_brand_slugs.append(brand.get('brand_slug'))
+             # Limit to a few brands to avoid excessive API calls if query is generic
+             if len(potential_brand_slugs) > 3: break
+
+
+    found_phone_slug = None
+    found_phone_name = None
+
+    # If we found potential brands, search for phones within those brands
+    if potential_brand_slugs:
+        for brand_slug in potential_brand_slugs:
+            phones = get_phones_by_brand(brand_slug)
+
+            if phones:
+                # Sort phones by likelihood of matching the query (e.g., exact match first)
+                # This is a simple heuristic, could be improved
+                sorted_phones = sorted(phones, key=lambda p: (
+                    p.get('phone_name', '').lower() == query_lower, # Exact match
+                    query_lower in p.get('phone_name', '').lower(), # Substring match
+                    -len(p.get('phone_name', '')) # Prefer shorter names if partial match? (less likely needed)
+                ), reverse=True) # Put better matches first
+
+                for phone in sorted_phones:
+                    phone_name = phone.get('phone_name', '')
                     phone_slug = phone.get('slug')
-                    if phone_slug:
-                        phone_details = get_phone_details(phone_slug)
-                        return extract_key_phone_specs(phone_details)
-    
-    # If no match found, try to get latest phones and return the first one
-    latest_phones = get_latest_phones()
-    if latest_phones:
-        phone_slug = latest_phones[0].get('slug')
-        if phone_slug:
-            phone_details = get_phone_details(phone_slug)
-            return extract_key_phone_specs(phone_details)
-    
-    # Fallback to hardcoded data if API fails
+
+                    # Simple check if query (or parts of query) are in the phone name
+                    if query_lower in phone_name.lower() or any(word in phone_name.lower() for word in query_lower.split() if len(word) > 2):
+                         found_phone_slug = phone_slug
+                         found_phone_name = phone_name
+                         break # Found a good match in this brand
+
+            if found_phone_slug: break # Found a match in any brand, stop searching brands
+
+
+    # If no match found via brand search, try searching latest phones
+    if not found_phone_slug:
+        latest_phones = get_latest_phones()
+        if latest_phones:
+             # Search in latest phones list
+             sorted_latest = sorted(latest_phones, key=lambda p: (
+                 p.get('phone_name', '').lower() == query_lower,
+                 query_lower in p.get('phone_name', '').lower()
+             ), reverse=True)
+             for phone in sorted_latest:
+                 phone_name = phone.get('phone_name', '')
+                 phone_slug = phone.get('slug')
+                 if query_lower in phone_name.lower() or any(word in phone_name.lower() for word in query_lower.split() if len(word) > 2):
+                     found_phone_slug = phone_slug
+                     found_phone_name = phone_name
+                     break
+
+
+    # If a phone slug was found, fetch detailed specs
+    if found_phone_slug:
+        phone_details = get_phone_details(found_phone_slug)
+        if phone_details:
+             return extract_key_phone_specs(phone_details)
+        else:
+             logger.warning(f"Could not fetch details for slug: {found_phone_slug}")
+             # Fallback to dummy data if details fetch fails
+             return fallback_phone_data(query)
+
+
+    # Fallback to hardcoded data if API lookup failed to find a phone
+    logger.warning(f"Could not find phone '{query}' via API. Falling back to dummy data.")
     return fallback_phone_data(query)
 
 def fallback_phone_data(query):
-    """Provide fallback phone data when API fails"""
-    # Hardcoded phone data for common phones
+    """Provide fallback phone data when API fails or no match is found"""
+    # Hardcoded phone data for common phones (keep this as a last resort)
     dummy_devices = {
         "samsung galaxy s23 ultra": {
             "name": "Samsung Galaxy S23 Ultra",
-            "brand": "Samsung",
-            "os": "Android 13",
-            "display": "6.8 بوصة، AMOLED، 1440 × 3088 بكسل",
-            "processor": "Snapdragon 8 Gen 2",
-            "ram": "12 جيجابايت",
+            "brand": "Samsung", "os": "Android 13", "display": "6.8 بوصة، AMOLED، 1440 × 3088 بكسل",
+            "processor": "Snapdragon 8 Gen 2", "ram": "12 جيجابايت",
             "camera": "200 ميجابكسل (رئيسية) + 10 ميجابكسل (مقربة) + 12 ميجابكسل (واسعة)",
-            "battery": "5000 مللي أمبير",
-            "storage": "256 جيجابايت / 512 جيجابايت / 1 تيرابايت",
-            "network": "5G",
-            "release_date": "فبراير 2023",
-            "price": "1199 دولار",
+            "battery": "5000 مللي أمبير، شحن 45 واط", "storage": "256/512 جيجابايت / 1 تيرابايت",
+            "network": "5G", "release_date": "فبراير 2023", "price": "~1199 دولار",
             "image": "https://fdn2.gsmarena.com/vv/pics/samsung/samsung-galaxy-s23-ultra-5g-1.jpg",
-            "nfc": "نعم",
-            "fast_charging": "45 واط",
-            "rating": "4.8/5"
+            "nfc": "نعم", "fast_charging": "نعم (45 واط)", "rating": "4.8/5"
         },
         "iphone 15 pro max": {
             "name": "iPhone 15 Pro Max",
-            "brand": "Apple",
-            "os": "iOS 17",
-            "display": "6.7 بوصة، OLED، 1290 × 2796 بكسل",
-            "processor": "A17 Pro",
-            "ram": "8 جيجابايت",
+            "brand": "Apple", "os": "iOS 17", "display": "6.7 بوصة، OLED، 1290 × 2796 بكسل",
+            "processor": "A17 Pro", "ram": "8 جيجابايت",
             "camera": "48 ميجابكسل (رئيسية) + 12 ميجابكسل (مقربة) + 12 ميجابكسل (واسعة)",
-            "battery": "4422 مللي أمبير",
-            "storage": "256 جيجابايت / 512 جيجابايت / 1 تيرابايت",
-            "network": "5G",
-            "release_date": "سبتمبر 2023",
-            "price": "1199 دولار",
+            "battery": "4422 مللي أمبير، شحن 20 واط", "storage": "256/512 جيجابايت / 1 تيرابايت",
+            "network": "5G", "release_date": "سبتمبر 2023", "price": "~1199 دولار",
             "image": "https://fdn2.gsmarena.com/vv/pics/apple/apple-iphone-15-pro-max-1.jpg",
-            "nfc": "نعم",
-            "fast_charging": "20 واط",
-            "rating": "4.7/5"
+            "nfc": "نعم", "fast_charging": "نعم (20 واط)", "rating": "4.7/5"
         },
         "google pixel 7 pro": {
             "name": "Google Pixel 7 Pro",
-            "brand": "Google",
-            "os": "Android 13",
-            "display": "6.7 بوصة، OLED، 1440 × 3120 بكسل",
-            "processor": "Google Tensor G2",
-            "ram": "12 جيجابايت",
+            "brand": "Google", "os": "Android 13", "display": "6.7 بوصة، OLED، 1440 × 3120 بكسل",
+            "processor": "Google Tensor G2", "ram": "12 جيجابايت",
             "camera": "50 ميجابكسل (رئيسية) + 48 ميجابكسل (مقربة) + 12 ميجابكسل (واسعة)",
-            "battery": "5000 مللي أمبير",
-            "storage": "128 جيجابايت / 256 جيجابايت / 512 جيجابايت",
-            "network": "5G",
-            "release_date": "أكتوبر 2022",
-            "price": "899 دولار",
+            "battery": "5000 مللي أمبير، شحن 23 واط", "storage": "128/256/512 جيجابايت",
+            "network": "5G", "release_date": "أكتوبر 2022", "price": "~899 دولار",
             "image": "https://fdn2.gsmarena.com/vv/pics/google/google-pixel7-pro-1.jpg",
-            "nfc": "نعم",
-            "fast_charging": "23 واط",
-            "rating": "4.5/5"
+            "nfc": "نعم", "fast_charging": "نعم (23 واط)", "rating": "4.5/5"
         },
         "xiaomi 13 pro": {
             "name": "Xiaomi 13 Pro",
-            "brand": "Xiaomi",
-            "os": "Android 13",
-            "display": "6.73 بوصة، OLED، 1440 × 3200 بكسل",
-            "processor": "Snapdragon 8 Gen 2",
-            "ram": "12 جيجابايت",
+            "brand": "Xiaomi", "os": "Android 13", "display": "6.73 بوصة، OLED، 1440 × 3200 بكسل",
+            "processor": "Snapdragon 8 Gen 2", "ram": "12 جيجابايت",
             "camera": "50 ميجابكسل (رئيسية) + 50 ميجابكسل (مقربة) + 50 ميجابكسل (واسعة)",
-            "battery": "4820 مللي أمبير",
-            "storage": "256 جيجابايت / 512 جيجابايت",
-            "network": "5G",
-            "release_date": "ديسمبر 2022",
-            "price": "899 دولار",
+            "battery": "4820 مللي أمبير، شحن 120 واط", "storage": "256/512 جيجابايت",
+            "network": "5G", "release_date": "ديسمبر 2022", "price": "~899 دولار",
             "image": "https://fdn2.gsmarena.com/vv/pics/xiaomi/xiaomi-13-pro-1.jpg",
-            "nfc": "نعم",
-            "fast_charging": "120 واط",
-            "rating": "4.6/5"
+            "nfc": "نعم", "fast_charging": "نعم (120 واط)", "rating": "4.6/5"
         },
         "oneplus 11": {
             "name": "OnePlus 11",
-            "brand": "OnePlus",
-            "os": "Android 13",
-            "display": "6.7 بوصة، AMOLED، 1440 × 3216 بكسل",
-            "processor": "Snapdragon 8 Gen 2",
-            "ram": "16 جيجابايت",
+            "brand": "OnePlus", "os": "Android 13", "display": "6.7 بوصة، AMOLED، 1440 × 3216 بكسل",
+            "processor": "Snapdragon 8 Gen 2", "ram": "16 جيجابايت",
             "camera": "50 ميجابكسل (رئيسية) + 32 ميجابكسل (مقربة) + 48 ميجابكسل (واسعة)",
-            "battery": "5000 مللي أمبير",
-            "storage": "256 جيجابايت / 512 جيجابايت",
-            "network": "5G",
-            "release_date": "يناير 2023",
-            "price": "699 دولار",
+            "battery": "5000 مللي أمبير، شحن 100 واط", "storage": "256/512 جيجابايت",
+            "network": "5G", "release_date": "يناير 2023", "price": "~699 دولار",
             "image": "https://fdn2.gsmarena.com/vv/pics/oneplus/oneplus-11-1.jpg",
-            "nfc": "نعم",
-            "fast_charging": "100 واط",
-            "rating": "4.5/5"
+            "nfc": "نعم", "fast_charging": "نعم (100 واط)", "rating": "4.5/5"
         }
     }
-    
+
     # Simple fuzzy matching
+    query_lower = query.lower().strip()
     for key, device in dummy_devices.items():
-        if query.lower() in key or key in query.lower():
-            return device
-    
+        if query_lower in key or key in query_lower:
+            # Return a copy to avoid modifying the original dummy data
+            return device.copy()
+
     # Create a fallback device if no match is found
     return {
         "name": query.title(),
-        "brand": "غير معروف",
-        "os": "غير معروف",
-        "display": "غير معروف",
-        "processor": "غير معروف",
-        "ram": "غير معروف",
-        "camera": "غير معروف",
-        "battery": "غير معروف",
-        "storage": "غير معروف",
-        "network": "غير معروف",
-        "release_date": "غير معروف",
-        "price": "غير معروف",
+        "brand": "غير معروف", "os": "غير معروف", "display": "غير معروف",
+        "processor": "غير معروف", "ram": "غير معروف", "camera": "غير معروف",
+        "battery": "غير معروف", "storage": "غير معروف", "network": "غير معروف",
+        "release_date": "غير معروف", "price": "غير معروف",
         "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=880&auto=format&fit=crop",
-        "nfc": "غير معروف",
-        "fast_charging": "غير معروف",
-        "rating": "غير معروف"
+        "nfc": "غير معروف", "fast_charging": "غير معروف", "rating": "غير معروف"
     }
 
+
 @app.route('/api/compare_devices', methods=['POST'])
-def compare_devices():
+# @login_required
+def api_compare_devices():
+    """API endpoint to compare specs of two devices."""
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
-    device1 = data.get('device1', '').strip()
-    device2 = data.get('device2', '').strip()
-    
-    if not device1 or not device2:
+    device1_name = data.get('device1', '').strip()
+    device2_name = data.get('device2', '').strip()
+
+    if not device1_name or not device2_name:
         return jsonify({"status": "error", "message": "يرجى إدخال اسم الجهازين"}), 400
-    
-    # Use the new phone matching function that uses real API data
-    device1_specs = find_phone_match(device1)
-    device2_specs = find_phone_match(device2)
-    
+
+    # Use the phone matching function that uses real API data or fallback
+    device1_specs = find_phone_match(device1_name)
+    device2_specs = find_phone_match(device2_name)
+
+    # Add more specific messaging if one or both phones weren't found
+    message = "تم العثور على الجهازين."
+    status = "success"
+
+    if not device1_specs and not device2_specs:
+         message = f"لم يتم العثور على معلومات كافية عن الجهازين '{device1_name}' و '{device2_name}'."
+         status = "error"
+         # Ensure empty specs are returned
+         device1_specs = fallback_phone_data(device1_name) # Use fallback structure
+         device2_specs = fallback_phone_data(device2_name) # Use fallback structure for consistent keys
+    elif not device1_specs:
+         message = f"لم يتم العثور على معلومات كافية عن الجهاز '{device1_name}'. تم عرض معلومات الجهاز الثاني فقط."
+         status = "partial_success"
+         device1_specs = fallback_phone_data(device1_name) # Use fallback structure
+    elif not device2_specs:
+         message = f"لم يتم العثور على معلومات كافية عن الجهاز '{device2_name}'. تم عرض معلومات الجهاز الأول فقط."
+         status = "partial_success"
+         device2_specs = fallback_phone_data(device2_name) # Use fallback structure
+
+
     return jsonify({
-        "status": "success",
+        "status": status,
+        "message": message,
         "device1": device1_specs,
         "device2": device2_specs
     })
 
-@app.route('/audio-generator')
+
+# @app.route('/audio-generator')
+# @login_required # Uncomment when Flask-Login is fully used
 def audio_generator():
-    """Audio generator page with ElevenLabs integration"""
+    """Audio generator page with TTS integration"""
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    return render_template('audio_generator.html', 
-                          username=session.get('username', ''))
+
+    # Pass API key status imported from utils to the template for conditional rendering
+    has_elevenlabs = bool(ELEVENLABS_API_KEY)
+    has_voicerss = bool(VOICERSS_API_KEY)
+    # Get preferred TTS service from session for default selection
+    preferred_tts_service = session.get('preferred_tts_service', 'elevenlabs')
+
+
+    return render_template('audio_generator.html',
+                          username=session.get('username', ''),
+                          has_elevenlabs=has_elevenlabs,
+                          has_voicerss=has_voicerss,
+                          preferred_tts_service=preferred_tts_service)
+
 
 @app.route('/api/text_to_speech', methods=['POST'])
+# @login_required # Uncomment when Flask-Login is fully used
 def api_text_to_speech():
-    """API endpoint to convert text to speech using ElevenLabs"""
+    """API endpoint to convert text to speech using TTS services"""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
     text = data.get('text', '').strip()
-    voice_id = data.get('voice_id', "EXAVITQu4vr4xnSDxMaL")  # Default male Arabic voice
-    
+    voice_id = data.get('voice_id', "EXAVITQu4vr4xnSDxMaL")  # Default voice ID for ElevenLabs
+    tts_service = data.get('tts_service', 'elevenlabs') # Preferred service from frontend
+
     if not text:
-        return jsonify({"status": "error", "message": "النص مطلوب"}), 400
-    
-    # Check if we have ElevenLabs API key
-    if not ELEVENLABS_API_KEY:
+        return jsonify({"status": "error", "message": "النص المطلوب فارغ."}), 400
+
+    # Use the centralized text_to_speech function from utils.py
+    # This function handles choosing the service and fallbacks internally
+    tts_result = text_to_speech(text, voice_id=voice_id, tts_service=tts_service)
+
+    # Handle TTS failure (utils.text_to_speech should return browser fallback unless explicitly disabled)
+    if tts_result is None:
+        # This case should ideally only be reached if all API keys are missing AND browser fallback is somehow not an option
         return jsonify({
-            "status": "error", 
-            "message": "مفتاح ElevenLabs API غير متوفر. يرجى إضافته في صفحة الإعدادات. سيتم استخدام المتصفح كبديل."
-        }), 500
-    
-    try:
-        # Call ElevenLabs API
-        audio_content = text_to_speech(text, voice_id)
-        
-        if not audio_content:
-            return jsonify({
-                "status": "error", 
-                "message": "حدث خطأ أثناء تحويل النص إلى صوت. سيتم استخدام المتصفح كبديل."
-            }), 500
-        
-        # Encode audio content to base64 for sending as JSON
-        import base64
-        audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-        
-        # Return audio as base64
-        return jsonify({
-            "status": "success",
-            "message": "تم تحويل النص إلى صوت بنجاح",
-            "audio": audio_base64
-        })
-    
-    except Exception as e:
-        logger.error(f"Error in text-to-speech API: {e}")
-        return jsonify({
-            "status": "error", 
-            "message": f"حدث خطأ: {str(e)}. سيتم استخدام المتصفح كبديل."
+            "status": "error",
+            "message": "فشل توليد الصوت باستخدام جميع الخدمات المتاحة. يرجى التحقق من مفاتيح API أو إعدادات المتصفح."
         }), 500
 
+    # Return the result structure provided by utils.text_to_speech
+    return jsonify({
+        "status": "success",
+        "message": "تم تحويل النص إلى صوت بنجاح." if tts_result['type'] != 'browser' else "سيتم استخدام النطق المدمج في المتصفح كبديل.",
+        "audio": tts_result.get('audio'), # audio content (base64 string or url)
+        "audio_type": tts_result.get('type'), # 'base64', 'url', or 'browser'
+        "text_for_browser": tts_result.get('text') if tts_result.get('type') == 'browser' else None # text to use for browser TTS
+    })
+
+
 @app.route('/api/translate', methods=['POST'])
+# @login_required # Uncomment when Flask-Login is fully used
 def api_translate():
-    """API endpoint to translate text"""
+    """API endpoint to translate text using Google Translate."""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
     text = data.get('text', '').strip()
     target_lang = data.get('target_lang', 'ar')  # Default to Arabic
-    
+
     if not text:
-        return jsonify({"status": "error", "message": "النص مطلوب"}), 400
-    
+        return jsonify({"status": "error", "message": "النص المطلوب للترجمة فارغ."}), 400
+
+    # Use the centralized translate function from utils.py
     translated_text = translate_text(text, target_lang)
-    
-    if not translated_text:
+
+    # utils.translate_text returns None on error
+    if translated_text is None:
         return jsonify({
-            "status": "error", 
-            "message": "حدث خطأ أثناء ترجمة النص"
+            "status": "error",
+            "message": "حدث خطأ أثناء ترجمة النص. يرجى التأكد من تثبيت googletrans والمحاولة لاحقاً."
         }), 500
-    
+
+    # If translation was successful but returned empty (e.g., input was just whitespace),
+    # return the original text or a specific message. utils handles empty input.
+    if not translated_text.strip() and text.strip(): # If input had text but output is empty
+         translated_text = text # Return original text if translation failed silently
+
+
     return jsonify({
         "status": "success",
         "translated_text": translated_text
     })
 
+
 @app.route('/settings')
+# @login_required # Uncomment when Flask-Login is fully used
 def settings():
     """Settings page for API keys and speech recognition settings"""
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    # Check if API keys are set
+
+    # Check if API keys are set by accessing the values imported from utils
     openrouter_connected = bool(OPENROUTER_API_KEY)
     elevenlabs_connected = bool(ELEVENLABS_API_KEY)
     stability_connected = bool(STABILITY_API_KEY)
-    
-    # Mask API keys for display
+    voicerss_connected = bool(VOICERSS_API_KEY)
+
+
+    # Mask API keys for display (do NOT send actual keys to frontend)
     openrouter_key_masked = "••••••••" if OPENROUTER_API_KEY else ""
     elevenlabs_key_masked = "••••••••" if ELEVENLABS_API_KEY else ""
     stability_key_masked = "••••••••" if STABILITY_API_KEY else ""
-    
+    voicerss_key_masked = "••••••••" if VOICERSS_API_KEY else ""
+
+
     # Get speech settings from session or use defaults
+    # Note: DeepSpeech implementation is missing in the provided code, this is a placeholder setting.
     use_deepspeech = session.get('use_deepspeech', False)
     audio_feedback = session.get('audio_feedback', True)
     auto_send = session.get('auto_send', True)
-    arabic_dialect = session.get('arabic_dialect', 'ar-SA')
-    
+    arabic_dialect = session.get('arabic_dialect', 'ar-SA') # Used by browser STT/TTS
+    preferred_tts_service = session.get('preferred_tts_service', 'elevenlabs') # Preferred TTS service
+
+
     return render_template('settings.html',
                           username=session.get('username', ''),
                           openrouter_connected=openrouter_connected,
                           elevenlabs_connected=elevenlabs_connected,
                           stability_connected=stability_connected,
+                          voicerss_connected=voicerss_connected, # Pass VoiceRSS status
                           openrouter_key_masked=openrouter_key_masked,
                           elevenlabs_key_masked=elevenlabs_key_masked,
                           stability_key_masked=stability_key_masked,
+                          voicerss_key_masked=voicerss_key_masked, # Pass VoiceRSS masked key
                           use_deepspeech=use_deepspeech,
                           audio_feedback=audio_feedback,
                           auto_send=auto_send,
-                          arabic_dialect=arabic_dialect)
+                          arabic_dialect=arabic_dialect,
+                          preferred_tts_service=preferred_tts_service # Pass preferred TTS service
+                          )
+
 
 @app.route('/api/save_speech_settings', methods=['POST'])
-def save_speech_settings():
-    """Save speech recognition settings"""
+# @login_required # Uncomment when Flask-Login is fully used
+def api_save_speech_settings():
+    """Save speech recognition and TTS settings to session."""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
-    
+
     # Save settings to session
     session['use_deepspeech'] = data.get('use_deepspeech', False)
     session['audio_feedback'] = data.get('audio_feedback', True)
     session['auto_send'] = data.get('auto_send', True)
     session['arabic_dialect'] = data.get('arabic_dialect', 'ar-SA')
-    
-    return jsonify({"status": "success"})
+    session['preferred_tts_service'] = data.get('preferred_tts_service', 'elevenlabs')
+
+
+    logger.info(f"Speech settings saved for {session.get('username', 'N/A')}: {session.get('use_deepspeech')}, {session.get('audio_feedback')}, {session.get('auto_send')}, {session.get('arabic_dialect')}, {session.get('preferred_tts_service')}")
+
+    return jsonify({"status": "success", "message": "تم حفظ الإعدادات بنجاح."})
+
 
 @app.route('/api/save_api_keys', methods=['POST'])
-def save_api_keys():
-    """Save API keys (in a real app, these would be stored securely)"""
+# @login_required # Uncomment when Flask-Login is fully used
+def api_save_api_keys():
+    """
+    Save API keys to environment variables (temporary for this demo).
+    In a real app, store securely in DB or vault per user.
+    """
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
-    
-    # Get keys from request
-    openrouter_key = data.get('openrouter_key', '')
-    elevenlabs_key = data.get('elevenlabs_key', '')
-    stability_key = data.get('stability_key', '')
-    
-    # In a real app, these would be stored securely in a database or vault
-    # For this demo, we'll just update the global variables temporarily
-    global OPENROUTER_API_KEY, ELEVENLABS_API_KEY, STABILITY_API_KEY
-    
-    # Only update if keys are provided
+
+    # Get keys from request - assume empty string if not provided
+    # Only update if the value is provided and is not the masked placeholder
+    openrouter_key = data.get('openrouter_key', '').strip()
+    elevenlabs_key = data.get('elevenlabs_key', '').strip()
+    stability_key = data.get('stability_key', '').strip()
+    voicerss_key = data.get('voicerss_key', '').strip()
+
+    # Update environment variables AND the module-level variables in utils.py
+    # This approach is for demonstrating dynamic updates in this simple demo structure.
+    # It does NOT provide persistence across process restarts or guarantee consistency in scaled deployments.
+    updated_keys = []
+    # Check against masked placeholder AND empty string
     if openrouter_key and openrouter_key != "••••••••":
-        OPENROUTER_API_KEY = openrouter_key
-        # Update environment variable
         os.environ["OPENROUTER_API_KEY"] = openrouter_key
-    
+        utils.OPENROUTER_API_KEY = openrouter_key # Update module variable
+        updated_keys.append("OpenRouter")
+    else:
+        # Option: Clear the key if user submits empty string? Or leave existing?
+        # For now, leave existing unless explicitly empty (not placeholder)
+        if not openrouter_key and data.get('openrouter_key') is not None and data.get('openrouter_key') != "••••••••": # Check if user explicitly cleared it
+            os.environ.pop("OPENROUTER_API_KEY", None)
+            utils.OPENROUTER_API_KEY = None
+            updated_keys.append("OpenRouter (Cleared)")
+
+
     if elevenlabs_key and elevenlabs_key != "••••••••":
-        ELEVENLABS_API_KEY = elevenlabs_key
-        # Update environment variable
         os.environ["ELEVENLABS_API_KEY"] = elevenlabs_key
-    
+        utils.ELEVENLABS_API_KEY = elevenlabs_key
+        updated_keys.append("ElevenLabs")
+    else:
+         if not elevenlabs_key and data.get('elevenlabs_key') is not None and data.get('elevenlabs_key') != "••••••••":
+            os.environ.pop("ELEVENLABS_API_KEY", None)
+            utils.ELEVENLABS_API_KEY = None
+            updated_keys.append("ElevenLabs (Cleared)")
+
+
     if stability_key and stability_key != "••••••••":
-        STABILITY_API_KEY = stability_key
-        # Update environment variable
         os.environ["STABILITY_API_KEY"] = stability_key
-    
-    return jsonify({"status": "success"})
+        utils.STABILITY_API_KEY = stability_key
+        updated_keys.append("Stability")
+    else:
+         if not stability_key and data.get('stability_key') is not None and data.get('stability_key') != "••••••••":
+            os.environ.pop("STABILITY_API_KEY", None)
+            utils.STABILITY_API_KEY = None
+            updated_keys.append("Stability (Cleared)")
+
+
+    if voicerss_key and voicerss_key != "••••••••":
+        os.environ["VOICERSS_API_KEY"] = voicerss_key
+        utils.VOICERSS_API_KEY = voicerss_key
+        updated_keys.append("VoiceRSS")
+    else:
+         if not voicerss_key and data.get('voicerss_key') is not None and data.get('voicerss_key') != "••••••••":
+            os.environ.pop("VOICERSS_API_KEY", None)
+            utils.VOICERSS_API_KEY = None
+            updated_keys.append("VoiceRSS (Cleared)")
+
+
+    message = "تم حفظ المفاتيح بنجاح: " + ", ".join(updated_keys) if updated_keys else "لم يتم تحديث أي مفاتيح."
+    if not updated_keys and (openrouter_key or elevenlabs_key or stability_key or voicerss_key):
+        message = "لم يتم تحديث أي مفاتيح (ربما تم إدخال القيم المخفية أو كانت فارغة)." # More informative message
+
+    logger.info(message)
+
+    # Note: To make keys persistent, you'd save them to the database here.
+    # The application should ideally load keys from the DB at startup or from a secure vault.
+
+
+    return jsonify({"status": "success", "message": message})
+
 
 # --- Phone Assistant Routes ---
-@app.route('/phone-assistant')
+# These routes use functions from phone_assistant.py.
+# phone_assistant.py currently has its own call_openrouter_api function.
+# In a future refactoring, phone_assistant.py should be updated to import
+# and use the call_openrouter_api from utils.py.
+
+# @app.route('/phone-assistant')
+# @login_required
 def phone_assistant():
     """Phone recommendation assistant page"""
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
+
     return render_template('assistant.html', username=session.get('username', ''))
 
-@app.route('/api/suggest_phone', methods=['POST'])
+# @app.route('/api/suggest_phone', methods=['POST'])
+# @login_required
 def api_suggest_phone():
     """API endpoint to suggest phones based on user requirements"""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
     requirements = data.get('requirements', '').strip()
-    
+
     if not requirements:
-        return jsonify({"status": "error", "message": "يرجى إدخال متطلباتك"}), 400
-    
-    # Get suggestion from phone assistant
+        return jsonify({"status": "error", "message": "يرجى إدخال متطلباتك للهاتف."}), 400
+
+    # Get suggestion from phone assistant (uses phone_assistant.py's internal logic)
+    # Note: This should eventually use a refactored phone_assistant that uses utils.call_openrouter_api
     suggestion = suggest_phone(requirements)
-    
+
+    if suggestion is None: # Handle potential failure from phone_assistant/its API calls
+         suggestion = "عذراً، لم أتمكن من تقديم اقتراح هاتف بناءً على متطلباتك في الوقت الحالي."
+
     return jsonify({
-        "status": "success",
+        "status": "success", # Still success even with a fallback message
         "suggestion": suggestion
     })
 
-@app.route('/api/cheaper_alternative', methods=['POST'])
+# @app.route('/api/cheaper_alternative', methods=['POST'])
+# @login_required
 def api_cheaper_alternative():
     """API endpoint to get cheaper alternatives for a specific phone"""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
-    requirements = data.get('requirements', '').strip()
-    
-    if not requirements:
-        return jsonify({"status": "error", "message": "يرجى إدخال اسم الهاتف"}), 400
-    
-    # Get cheaper alternatives
-    alternatives = suggest_cheaper_alternative(requirements)
-    
-    # Make a recommendation
-    recommendation = suggest_phone(f"أريد بديل أرخص لـ {requirements} مع الحفاظ على جودة الأداء.")
-    
+    phone_name = data.get('requirements', '').strip() # The frontend sends the phone name in 'requirements'
+
+    if not phone_name:
+        return jsonify({"status": "error", "message": "يرجى إدخال اسم الهاتف الذي تريد بديلاً له."}), 400
+
+    # Get cheaper alternatives (uses phone_assistant.py's internal logic)
+    # Note: This should eventually use a refactored phone_assistant
+    alternatives = suggest_cheaper_alternative(phone_name)
+
+    # Make a recommendation based on the requirements (uses phone_assistant.py's internal logic)
+    # Note: This should eventually use a refactored phone_assistant
+    recommendation = suggest_phone(f"أريد بديل أرخص لـ {phone_name} مع الحفاظ على جودة الأداء قدر الإمكان.")
+
+    # Determine overall status and message
+    status = "success"
+    message = "تم العثور على بدائل مقترحة."
+    if alternatives is None and recommendation is None:
+         status = "error"
+         message = "عذراً، لم أتمكن من العثور على بدائل أرخص أو تقديم توصية في الوقت الحالي."
+    elif alternatives is None:
+         status = "partial_success"
+         message = "تم تقديم توصية لهاتف بناءً على طلبك، لكن لم أتمكن من العثور على بدائل أرخص محددة."
+    elif recommendation is None:
+         status = "partial_success"
+         message = "تم العثور على بدائل أرخص محددة، لكن لم أتمكن من تقديم توصية واضحة بناءً على طلبك."
+
+
     return jsonify({
-        "status": "success",
-        "suggestion": recommendation,
-        "alternatives": alternatives
+        "status": status,
+        "message": message,
+        "suggestion": recommendation, # Could be None
+        "alternatives": alternatives # Could be None
     })
 
-@app.route('/api/advanced_comparison', methods=['POST'])
+# @app.route('/api/advanced_comparison', methods=['POST'])
+# @login_required
 def api_advanced_comparison():
-    """API endpoint to get advanced comparison between two phones"""
+    """API endpoint to get advanced comparison between two phones using AI."""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
+
     data = request.get_json()
     phone1 = data.get('phone1', '').strip()
     phone2 = data.get('phone2', '').strip()
-    
+
     if not phone1 or not phone2:
-        return jsonify({"status": "error", "message": "يرجى إدخال أسماء الهواتف"}), 400
-    
-    # Get advanced comparison
+        return jsonify({"status": "error", "message": "يرجى إدخال أسماء الهاتفين للمقارنة."}), 400
+
+    # Get advanced comparison (uses phone_assistant.py's internal logic)
+    # Note: This should eventually use a refactored phone_assistant that uses utils.call_openrouter_api
     comparison = get_advanced_comparison(phone1, phone2)
-    
+
+    if comparison is None:
+        comparison = "عذراً، لم أتمكن من إجراء مقارنة متقدمة بين الهاتفين المطلوبين في الوقت الحالي."
+        status = "error"
+    else:
+        status = "success"
+
+
     return jsonify({
-        "status": "success",
+        "status": status,
         "comparison": comparison
     })
 
-# --- Voice Assistant Routes ---
 
-@app.route('/voice_assistant')
+# --- Voice Assistant Routes (Integrated into app.py) ---
+
+# @app.route('/voice_assistant')
+# @login_required # Uncomment when Flask-Login is fully used
 def voice_assistant():
     """Voice assistant page with speech recognition and AI responses"""
+    # Manual session check for now
     if 'username' not in session:
         return redirect(url_for('index'))
-    
-    # Determine models available based on API keys
+
+    # Determine models and TTS services available based on API keys imported from utils
     has_openrouter = bool(OPENROUTER_API_KEY)
     has_elevenlabs = bool(ELEVENLABS_API_KEY)
-    has_voicerss = bool(os.environ.get("VOICERSS_API_KEY"))
-    
-    return render_template('voice_assistant.html', 
+    has_voicerss = bool(VOICERSS_API_KEY) # Use the key imported from utils
+
+    # Get preferred TTS service from session or default
+    preferred_tts_service = session.get('preferred_tts_service', 'elevenlabs')
+
+    # Determine which models are actually available to pass to the template
+    available_models = [
+        {"id": "mistralai/mixtral-8x7b-instruct", "name": "Mixtral 8x7B (مجاني)"},
+        {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku (مجاني/رخيص)"}
+    ]
+    if has_openrouter:
+        # Add OpenRouter specific models if key is available
+        available_models.append({"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo"})
+        available_models.append({"id": "google/gemini-pro", "name": "Gemini Pro"})
+        available_models.append({"id": "openai/gpt-4o", "name": "GPT-4o (الأفضل)"})
+
+
+    return render_template('voice_assistant.html',
                          username=session.get('username', ''),
                          has_openrouter=has_openrouter,
                          has_elevenlabs=has_elevenlabs,
-                         has_voicerss=has_voicerss)
+                         has_voicerss=has_voicerss,
+                         preferred_tts_service=preferred_tts_service,
+                         available_models=available_models # Pass the list of available models
+                         )
+
 
 @app.route("/api/voice_assistant", methods=["POST"])
+# @login_required # Uncomment when Flask-Login is fully used
 def api_voice_assistant():
-    """Process voice input and generate AI response"""
+    """Process voice input and generate AI response, return text and audio details."""
+    # Manual session check for now
     if 'username' not in session:
         return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
-    
-    data = request.get_json()
-    user_prompt = data.get("prompt", "")
-    model = data.get("model", "mistralai/mixtral-8x7b-instruct")
-    tts_service = data.get("tts_service", "elevenlabs")  # Default to ElevenLabs but allow override
-    
-    if not user_prompt:
-        return jsonify({"status": "error", "message": "لم يتم توفير نص للمعالجة"})
-    
-    # Prepare messages with system message optimized for voice assistant
-    messages = [
-        {
-            "role": "system",
-            "content": "أنت مساعد صوتي ذكي باللغة العربية اسمه ياسمين. أجب بإجابات مختصرة ومفيدة. كن ودودًا ولكن مباشرًا. اليوم هو 1 مايو 2025."
-        },
-        {
-            "role": "user",
-            "content": user_prompt
-        }
-    ]
-    
-    # Import from utils to use the updated OpenRouter API function
-    from utils import call_openrouter_api as utils_openrouter
 
-    # Call OpenRouter API to get AI response
-    try:
-        ai_response = utils_openrouter(messages, model=model)
-    except Exception as e:
-        logger.error(f"Error using utils.call_openrouter_api: {e}")
-        # Fallback to original function if needed
-        ai_response = call_openrouter_api(messages[1]["content"], model=model)
-    
-    # Generate audio
-    voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
-    
-    # Use utils.text_to_speech with tts_service parameter if available, otherwise fall back to original function
-    try:
-        from utils import text_to_speech as utils_tts
-        audio_result = utils_tts(ai_response, voice_id=voice_id, tts_service=tts_service)
-    except (TypeError, ImportError) as e:
-        logger.warning(f"Failed to use utils.text_to_speech with tts_service: {e}. Using default TTS.")
-        audio_result = text_to_speech(ai_response, voice_id=voice_id)
-    
-    # Determine if we got back a URL (VoiceRSS) or base64 data (ElevenLabs)
-    audio_type = "url" if audio_result and audio_result.startswith("http") else "base64"
-    
+    data = request.get_json()
+    user_prompt = data.get("prompt", "").strip()
+    model = data.get("model", "mistralai/mixtral-8x7b-instruct") # Default model if not provided
+    tts_service = data.get("tts_service", session.get('preferred_tts_service', 'elevenlabs')) # Preferred TTS service from frontend or session
+    voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL") # Preferred voice ID from frontend
+
+    if not user_prompt:
+        return jsonify({"status": "error", "message": "لم يتم توفير نص للمعالجة."}), 400
+
+    # Define the system message specifically for the voice assistant context
+    voice_assistant_system_message = (
+        "أنت مساعد صوتي ذكي باللغة العربية اسمه ياسمين. "
+        "أجب بإجابات مختصرة ومفيدة ومباشرة. "
+        "كن ودودًا ولكن لا تطيل في الردود لتكون الإجابة مناسبة للنطق الصوتي السريع. "
+        "اليوم هو 1 مايو 2025."
+    )
+
+    # Prepare messages list
+    # In a real app, load recent history for context
+    messages = [
+        {"role": "user", "content": user_prompt}
+    ]
+
+    # Use the centralized call_openrouter_api from utils.py
+    # Pass the specific system message as a parameter
+    ai_response = call_openrouter_api(
+        messages,
+        model=model,
+        temperature=0.8, # Slightly higher temp for potentially more natural voice response
+        max_tokens=500, # Keep responses concise for voice
+        system_message=voice_assistant_system_message
+    )
+
+    # Handle OpenRouter API failure (call_openrouter_api from utils returns an error string or None)
+    if ai_response is None or "حدث خطأ" in ai_response or "عذراً" in ai_response or "استغرق الرد" in ai_response:
+        logger.error(f"AI response error for voice assistant: {ai_response}")
+        # Provide a specific fallback message for voice assistant failures
+        if not OPENROUTER_API_KEY:
+             ai_response = "عذراً، لا يمكنني معالجة طلبك الصوتي الآن بسبب عدم توفر اتصال بخدمة الذكاء الاصطناعي (مفتاح OpenRouter مفقود)."
+        else:
+             ai_response = "عذراً، حدث خطأ أثناء معالجة طلبك الصوتي. يرجى المحاولة مرة أخرى لاحقاً." # Generic error
+
+
+    # Use the centralized text_to_speech function from utils.py
+    # This function handles service selection (ElevenLabs/VoiceRSS) and fallback to browser internally
+    tts_result = text_to_speech(ai_response, voice_id=voice_id, tts_service=tts_service)
+
+    # Handle TTS failure (utils.text_to_speech should return browser fallback unless explicitly disabled)
+    if tts_result is None:
+         # This case should ideally not be reached if browser fallback is always enabled in utils
+         return jsonify({
+              "status": "error",
+              "message": "فشل توليد الصوت للرد."
+         }), 500
+
+    # Return the AI text response and the audio result details from utils.text_to_speech
     return jsonify({
         "status": "success",
         "reply": ai_response,
-        "audio": audio_result,
-        "audio_type": audio_type
+        "audio": tts_result.get('audio'), # Base64 string or URL
+        "audio_type": tts_result.get('type'), # 'base64', 'url', or 'browser'
+        "text_for_browser": tts_result.get('text') # Only present if audio_type is 'browser'
     })
 
+
+# --- Image Generation Route ---
+# @app.route('/image-generator')
+# @login_required # Uncomment when Flask-Login is fully used
+def image_generator():
+    """Image generator page with Stability AI integration"""
+    # Manual session check for now
+    if 'username' not in session:
+        return redirect(url_for('index'))
+
+    # Check if Stability API key is available via the variable imported from utils
+    has_stability = bool(STABILITY_API_KEY)
+
+    return render_template('image_generator.html',
+                           username=session.get('username', ''),
+                           has_stability=has_stability)
+
+
+# @app.route('/api/generate_image', methods=['POST'])
+# @login_required # Uncomment when Flask-Login is fully used
+def api_generate_image():
+    """API endpoint to generate an image from text using Stability AI"""
+    # Manual session check for now
+    if 'username' not in session:
+        return jsonify({"status": "error", "message": "جلسة غير صالحة"}), 401
+
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    size = data.get('size', 512) # Get size from request, default to 512. Frontend should validate/suggest sizes.
+
+    if not prompt:
+        return jsonify({"status": "error", "message": "الرجاء إدخال وصف للصورة."}), 400
+
+    # Check for API key availability using the variable imported from utils
+    if not STABILITY_API_KEY:
+         return jsonify({"status": "error", "message": "مفتاح Stability API غير متوفر. يرجى إضافته في صفحة الإعدادات لتمكين هذه الميزة."}), 500
+
+    # Use the centralized generate_image function from utils.py
+    image_base64 = generate_image(prompt, size=size)
+
+    if image_base64:
+        return jsonify({
+            "status": "success",
+            "message": "تم توليد الصورة بنجاح.",
+            "image_base64": image_base64
+        })
+    else:
+        # generate_image in utils handles logging API errors and returns None on failure
+        return jsonify({"status": "error", "message": "فشل توليد الصورة. قد يكون الوصف غير مناسب أو حدث خطأ في الخدمة. يرجى المحاولة مرة أخرى لاحقاً."}), 500
+
+
 if __name__ == "__main__":
+    # Optional: Create database tables if they don't exist (useful for first run)
+    # from models import User, Message # Import models here for creation
+    # with app.app_context():
+    #     db.create_all()
+    #     logger.info("Database tables checked/created.")
+    # Note: Running create_all() repeatedly is safe, it won't recreate existing tables.
+
+    # In a production environment, debug=False
     app.run(host="0.0.0.0", port=5000, debug=True)
