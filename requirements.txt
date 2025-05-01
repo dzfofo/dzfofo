@@ -1,14 +1,14 @@
-    "email-validator>=2.2.0",
-    "flask-session>=0.8.0",
-    "flask>=3.1.0",
-    "flask-sqlalchemy>=3.1.1",
-    "gunicorn>=23.0.0",
-    "psycopg2-binary>=2.9.10",
-    "requests>=2.32.3",
-    "google-auth>=2.39.0",
-    "stability-sdk>=0.8.6",
-    "opencv-python>=4.11.0.86",
-    "pillow>=11.2.1",
-    "googletrans==4.0.0rc1",
-    "flask-login>=0.6.3",
-    "openai>=0.28.1",
+email-validator>=2.2.0
+flask-session>=0.8.0
+flask>=3.1.0
+flask-sqlalchemy>=3.1.1
+gunicorn>=23.0.0
+psycopg2-binary>=2.9.10
+requests>=2.32.3
+google-auth>=2.39.0
+stability-sdk>=0.8.6
+opencv-python>=4.11.0.86
+pillow>=11.2.1
+googletrans==4.0.0rc1
+flask-login>=0.6.3
+openai>=0.28.1
