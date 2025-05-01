@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ياسمين AI{% endblock %}</title>
+    
+    <!-- Google Fonts - Cairo for Arabic -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    {% if session.username %}
+    <header class="header">
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+                <span>ياسمين AI</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="{{ url_for('features_hub') }}" class="nav-item">الرئيسية</a>
+                <a href="{{ url_for('compare') }}" class="nav-item">مقارنة الأجهزة</a>
+                <a href="{{ url_for('settings') }}" class="nav-item">الإعدادات</a>
+                
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        {{ session.username[0] }}
+                    </div>
+                    <span class="user-name">{{ session.username }}</span>
+                </div>
+                
+                <button id="theme-toggle" class="theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+                
+                <button id="logout-button" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+    {% endif %}
+    
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <div id="toast-container"></div>
+    
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

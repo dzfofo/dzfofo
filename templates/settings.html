@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}ياسمين AI - الإعدادات{% endblock %}
+
+{% block styles %}
+<style>
+    .settings-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: var(--card-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .settings-title {
+        font-size: 1.8rem;
+        color: var(--primary-color);
+        margin-bottom: 1.5rem;
+        text-align: center;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 1rem;
+    }
+    
+    .settings-section {
+        margin-bottom: 2rem;
+    }
+    
+    .settings-section-title {
+        font-size: 1.4rem;
+        color: var(--text-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .settings-section-title i {
+        margin-left: 0.5rem;
+        color: var(--accent-color);
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background-color: var(--input-bg);
+        color: var(--text-color);
+        font-family: var(--font-family);
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.2);
+    }
+    
+    .api-status {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 1rem;
+    }
+    
+    .api-connected {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #28a745;
+    }
+    
+    .api-disconnected {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: #dc3545;
+    }
+    
+    .settings-btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-family: var(--font-family);
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .settings-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .settings-panel {
+        background-color: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+    
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--border-color);
+        transition: .4s;
+        border-radius: 34px;
+    }
+    
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+        background-color: var(--primary-color);
+    }
+    
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+    
+    .settings-option {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .settings-option:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .settings-option-text {
+        flex-grow: 1;
+    }
+    
+    .settings-option-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: var(--text-color);
+    }
+    
+    .settings-option-description {
+        font-size: 0.9rem;
+        color: var(--text-light);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="settings-container">
+        <h1 class="settings-title">إعدادات ياسمين AI</h1>
+        
+        <div class="settings-section">
+            <h2 class="settings-section-title"><i class="fas fa-key"></i> إدارة مفاتيح API</h2>
+            <div class="settings-panel">
+                <div class="form-group">
+                    <label class="form-label">
+                        OpenRouter API
+                        {% if openrouter_connected %}
+                        <span class="api-status api-connected">متصل</span>
+                        {% else %}
+                        <span class="api-status api-disconnected">غير متصل</span>
+                        {% endif %}
+                    </label>
+                    <input type="password" class="form-control" id="openrouter-key" placeholder="أدخل مفتاح OpenRouter API" value="{{ openrouter_key_masked }}">
+                    <small>مطلوب للوصول إلى نماذج الذكاء الاصطناعي مثل GPT-4o، Claude، وغيرها.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        ElevenLabs API
+                        {% if elevenlabs_connected %}
+                        <span class="api-status api-connected">متصل</span>
+                        {% else %}
+                        <span class="api-status api-disconnected">غير متصل</span>
+                        {% endif %}
+                    </label>
+                    <input type="password" class="form-control" id="elevenlabs-key" placeholder="أدخل مفتاح ElevenLabs API" value="{{ elevenlabs_key_masked }}">
+                    <small>مطلوب لتحويل النص إلى صوت طبيعي باللغة العربية.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        Stability API
+                        {% if stability_connected %}
+                        <span class="api-status api-connected">متصل</span>
+                        {% else %}
+                        <span class="api-status api-disconnected">غير متصل</span>
+                        {% endif %}
+                    </label>
+                    <input type="password" class="form-control" id="stability-key" placeholder="أدخل مفتاح Stability API" value="{{ stability_key_masked }}">
+                    <small>مطلوب لتوليد الصور بناءً على وصف نصي.</small>
+                </div>
+                
+                <button id="save-api-keys" class="settings-btn">حفظ المفاتيح</button>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h2 class="settings-section-title"><i class="fas fa-microphone"></i> إعدادات التعرف على الكلام</h2>
+            <div class="settings-panel">
+                <div class="settings-option">
+                    <div class="settings-option-text">
+                        <div class="settings-option-title">استخدام DeepSpeech للهجة العربية</div>
+                        <div class="settings-option-description">تحسين دقة التعرف على الكلام للهجات العربية المختلفة</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="use-deepspeech" {% if use_deepspeech %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="settings-option">
+                    <div class="settings-option-text">
+                        <div class="settings-option-title">التأكيد الصوتي</div>
+                        <div class="settings-option-description">تشغيل صوت عند بدء وإيقاف الاستماع</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="audio-feedback" {% if audio_feedback %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="settings-option">
+                    <div class="settings-option-text">
+                        <div class="settings-option-title">الإرسال التلقائي</div>
+                        <div class="settings-option-description">إرسال الرسالة تلقائيًا بعد انتهاء الكلام</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-send" {% if auto_send %}checked{% endif %}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">اللهجة العربية المفضلة</label>
+                    <select class="form-control" id="arabic-dialect">
+                        <option value="ar-SA" {% if arabic_dialect == 'ar-SA' %}selected{% endif %}>اللهجة السعودية</option>
+                        <option value="ar-EG" {% if arabic_dialect == 'ar-EG' %}selected{% endif %}>اللهجة المصرية</option>
+                        <option value="ar-MA" {% if arabic_dialect == 'ar-MA' %}selected{% endif %}>اللهجة المغربية</option>
+                        <option value="ar-IQ" {% if arabic_dialect == 'ar-IQ' %}selected{% endif %}>اللهجة العراقية</option>
+                        <option value="ar-SY" {% if arabic_dialect == 'ar-SY' %}selected{% endif %}>اللهجة السورية</option>
+                        <option value="ar-TN" {% if arabic_dialect == 'ar-TN' %}selected{% endif %}>اللهجة التونسية</option>
+                        <option value="ar-JO" {% if arabic_dialect == 'ar-JO' %}selected{% endif %}>اللهجة الأردنية</option>
+                        <option value="ar-LB" {% if arabic_dialect == 'ar-LB' %}selected{% endif %}>اللهجة اللبنانية</option>
+                    </select>
+                </div>
+                
+                <button id="save-speech-settings" class="settings-btn">حفظ إعدادات الكلام</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Save API Keys
+        const saveApiKeysBtn = document.getElementById('save-api-keys');
+        if (saveApiKeysBtn) {
+            saveApiKeysBtn.addEventListener('click', function() {
+                const openrouterKey = document.getElementById('openrouter-key').value.trim();
+                const elevenlabsKey = document.getElementById('elevenlabs-key').value.trim();
+                const stabilityKey = document.getElementById('stability-key').value.trim();
+                
+                // Save keys to server
+                fetch('/api/save_api_keys', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        openrouter_key: openrouterKey,
+                        elevenlabs_key: elevenlabsKey,
+                        stability_key: stabilityKey
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showToast('تم حفظ مفاتيح API بنجاح', 'success');
+                        // Reload page after short delay to update statuses
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showToast(data.message || 'حدث خطأ أثناء حفظ المفاتيح', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('حدث خطأ في الاتصال بالخادم', 'error');
+                });
+            });
+        }
+        
+        // Save Speech Settings
+        const saveSpeechSettingsBtn = document.getElementById('save-speech-settings');
+        if (saveSpeechSettingsBtn) {
+            saveSpeechSettingsBtn.addEventListener('click', function() {
+                const useDeepSpeech = document.getElementById('use-deepspeech').checked;
+                const audioFeedback = document.getElementById('audio-feedback').checked;
+                const autoSend = document.getElementById('auto-send').checked;
+                const arabicDialect = document.getElementById('arabic-dialect').value;
+                
+                // Save speech settings to server
+                fetch('/api/save_speech_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        use_deepspeech: useDeepSpeech,
+                        audio_feedback: audioFeedback,
+                        auto_send: autoSend,
+                        arabic_dialect: arabicDialect
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showToast('تم حفظ إعدادات الكلام بنجاح', 'success');
+                    } else {
+                        showToast(data.message || 'حدث خطأ أثناء حفظ الإعدادات', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('حدث خطأ في الاتصال بالخادم', 'error');
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

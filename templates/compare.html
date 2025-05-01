@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}ياسمين AI - مقارنة الهواتف الذكية{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/compare.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="comparison-title">مقارنة مواصفات الهواتف الذكية</h1>
+    
+    <div class="compare-container">
+        <div class="compare-intro">
+            <p>قم بإدخال أسماء الهواتف التي ترغب في مقارنتها للحصول على مقارنة تفصيلية بين مواصفاتها. يمكنك مقارنة جهازين في وقت واحد.</p>
+            <div class="example-devices">
+                <strong>أمثلة:</strong> 
+                <span class="example-chip" onclick="prefillDevice(this)">iPhone 15 Pro Max</span>
+                <span class="example-chip" onclick="prefillDevice(this)">Samsung Galaxy S23 Ultra</span>
+                <span class="example-chip" onclick="prefillDevice(this)">Google Pixel 7 Pro</span>
+                <span class="example-chip" onclick="prefillDevice(this)">Xiaomi 13 Pro</span>
+                <span class="example-chip" onclick="prefillDevice(this)">OnePlus 11</span>
+            </div>
+        </div>
+        
+        <form class="compare-form" id="compare-form">
+            <div class="form-group">
+                <input type="text" id="device1" class="compare-input" placeholder="اسم الجهاز الأول (مثال: iPhone 15 Pro)" required>
+                <button type="button" class="clear-btn" id="clear-device1"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="form-group">
+                <input type="text" id="device2" class="compare-input" placeholder="اسم الجهاز الثاني (مثال: Samsung Galaxy S23)" required>
+                <button type="button" class="clear-btn" id="clear-device2"><i class="fas fa-times"></i></button>
+            </div>
+            <button type="submit" class="compare-button">
+                <i class="fas fa-sync-alt"></i> قارن الآن
+            </button>
+        </form>
+
+        <div class="loader" id="loader" style="display: none;">
+            <div class="loader-spinner"></div>
+            <p>جاري البحث عن الهواتف والتحقق من المواصفات...</p>
+        </div>
+
+        <div class="results" id="results">
+            <!-- النتائج ستُعرض هنا ديناميكياً -->
+        </div>
+    </div>
+    
+    <div class="features-explanation">
+        <h2>معلومات عن المقارنة</h2>
+        <div class="feature-grid">
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-microchip"></i></div>
+                <div class="feature-info">
+                    <h3>المعالج</h3>
+                    <p>مقارنة قوة المعالج وسرعته، والتي تؤثر على أداء الهاتف بشكل عام.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
+                <div class="feature-info">
+                    <h3>الشاشة</h3>
+                    <p>مقارنة حجم الشاشة ودقتها ونوع التقنية المستخدمة ومعدل التحديث.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-camera"></i></div>
+                <div class="feature-info">
+                    <h3>الكاميرا</h3>
+                    <p>مقارنة دقة الكاميرات الخلفية والأمامية وميزاتها المختلفة.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-battery-full"></i></div>
+                <div class="feature-info">
+                    <h3>البطارية</h3>
+                    <p>مقارنة سعة البطارية وسرعة الشحن ودعم الشحن اللاسلكي.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-memory"></i></div>
+                <div class="feature-info">
+                    <h3>الذاكرة والتخزين</h3>
+                    <p>مقارنة حجم الذاكرة العشوائية والتخزين الداخلي وإمكانية التوسعة.</p>
+                </div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><i class="fas fa-dollar-sign"></i></div>
+                <div class="feature-info">
+                    <h3>السعر</h3>
+                    <p>مقارنة أسعار الهواتف في السوق العالمي (قد تختلف الأسعار حسب البلد).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/compare.js') }}"></script>
+{% endblock %}

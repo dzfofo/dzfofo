@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ياسمين - المساعد الصوتي</title>
+  
+  <!-- Google Fonts - Cairo for Arabic -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      /* Main color scheme */
+      --primary-color: #c78e5e;
+      --primary-light: #daa987;
+      --primary-dark: #b27b4d;
+      --accent-color: #4a69bd;
+      --accent-light: #6887cf;
+      --accent-dark: #3a59ad;
+      
+      /* Text colors */
+      --text-color: #333333;
+      --text-light: #666666;
+      --text-inverse: #ffffff;
+      
+      /* Background colors */
+      --bg-color: #f8f5f2;
+      --card-color: #ffffff;
+      
+      /* Border and shadow */
+      --border-color: #e0e0e0;
+      --shadow-sm: 0 2px 5px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 10px rgba(0,0,0,0.08);
+      --shadow-lg: 0 10px 20px rgba(0,0,0,0.1);
+      
+      /* Border radius */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+    
+    /* Dark mode support */
+    body.dark-mode {
+      --text-color: #e0e0e0;
+      --text-light: #b0b0b0;
+      --text-muted: #808080;
+      --text-inverse: #333333;
+      
+      --bg-color: #222222;
+      --card-color: #333333;
+      --border-color: #444444;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      padding: 20px;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    h1 {
+      color: var(--primary-color);
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+    
+    .subtitle {
+      color: var(--text-light);
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+    }
+    
+    .voice-assistant-container {
+      background-color: var(--card-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .model-selection {
+      margin-bottom: 20px;
+    }
+    
+    select {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background-color: var(--card-color);
+      color: var(--text-color);
+      font-family: 'Cairo', sans-serif;
+      font-size: 1rem;
+    }
+    
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    button {
+      background-color: var(--accent-color);
+      color: var(--text-inverse);
+      border: none;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      font-family: 'Cairo', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease-in-out;
+    }
+    
+    button:hover {
+      background-color: var(--accent-dark);
+      transform: translateY(-2px);
+    }
+    
+    button:disabled {
+      background-color: var(--text-light);
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .primary-button {
+      background-color: var(--primary-color);
+      flex: 1;
+    }
+    
+    .primary-button:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .recording {
+      background-color: #e74c3c !important;
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+      }
+    }
+    
+    .conversation {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .message {
+      padding: 15px;
+      border-radius: var(--radius-md);
+      max-width: 85%;
+      position: relative;
+    }
+    
+    .user-message {
+      background-color: var(--accent-light);
+      color: var(--text-inverse);
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    
+    .assistant-message {
+      background-color: var(--primary-light);
+      color: var(--text-color);
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+    
+    .message-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    .message-content {
+      line-height: 1.5;
+    }
+    
+    .message-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .action-button {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: inherit;
+      padding: 5px 10px;
+      font-size: 0.9rem;
+      border-radius: var(--radius-sm);
+    }
+    
+    .loader {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+      font-weight: 600;
+      color: var(--text-light);
+    }
+    
+    .loader .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid var(--border-color);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .text-input {
+      display: flex;
+      margin-top: 20px;
+      gap: 10px;
+    }
+    
+    .text-input input {
+      flex: 1;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background-color: var(--card-color);
+      color: var(--text-color);
+      font-family: 'Cairo', sans-serif;
+      font-size: 1rem;
+    }
+    
+    .settings {
+      margin-top: 20px;
+    }
+    
+    .settings-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .settings-content {
+      background-color: var(--card-color);
+      border-radius: var(--radius-md);
+      padding: 15px;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .setting-group {
+      margin-bottom: 15px;
+    }
+    
+    .setting-label {
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: var(--text-light);
+    }
+    
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+      
+      .voice-assistant-container {
+        padding: 20px;
+      }
+      
+      .button-row {
+        flex-direction: column;
+      }
+      
+      .message {
+        max-width: 95%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ياسمين - المساعد الصوتي</h1>
+      <p class="subtitle">تحدث إلى المساعد الذكي باللغة العربية</p>
+    </header>
+    
+    <div class="voice-assistant-container">
+      <div class="controls">
+        <div class="model-selection">
+          <label for="model-select" class="setting-label">نموذج الذكاء الاصطناعي:</label>
+          <select id="model-select">
+            <option value="mistralai/mixtral-8x7b-instruct">Mixtral 8x7B (مجاني)</option>
+            <option value="anthropic/claude-3-haiku">Claude 3 Haiku (مجاني/رخيص)</option>
+            {% if has_openrouter %}
+            <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="google/gemini-pro">Gemini Pro</option>
+            <option value="openai/gpt-4o">GPT-4o (الأفضل)</option>
+            {% endif %}
+          </select>
+        </div>
+        
+        {% if has_elevenlabs %}
+        <div class="model-selection">
+          <label for="voice-select" class="setting-label">صوت المساعد:</label>
+          <select id="voice-select">
+            <option value="EXAVITQu4vr4xnSDxMaL">آدم (صوت رجالي)</option>
+            <option value="21m00Tcm4TlvDq8ikWAM">راشيل (صوت نسائي)</option>
+            <option value="ONIBU1mnHqbNnNtBkZMM">أمير (صوت رجالي)</option>
+            <option value="jsCqWAovK2LkecY7zXl4">سارة (صوت نسائي)</option>
+          </select>
+        </div>
+        {% endif %}
+        
+        <div class="button-row">
+          <button id="start-button" class="primary-button">
+            <i class="fas fa-microphone"></i>
+            ابدأ التحدث
+          </button>
+          <button id="stop-button" disabled>
+            <i class="fas fa-stop"></i>
+            إيقاف
+          </button>
+          <button id="clear-button">
+            <i class="fas fa-trash"></i>
+            مسح المحادثة
+          </button>
+        </div>
+        
+        <div class="text-input">
+          <input type="text" id="text-input" placeholder="أو اكتب رسالتك هنا...">
+          <button id="send-button">
+            <i class="fas fa-paper-plane"></i>
+            إرسال
+          </button>
+        </div>
+      </div>
+      
+      <div class="loader">
+        <div class="spinner"></div>
+        <span>جارٍ التفكير...</span>
+      </div>
+      
+      <div id="conversation" class="conversation">
+        <!-- Messages will be added here -->
+      </div>
+    </div>
+    
+    <div class="settings">
+      <div class="settings-title">
+        <i class="fas fa-cog"></i>
+        <span>معلومات المساعد</span>
+      </div>
+      <div class="settings-content">
+        <div class="setting-group">
+          <div class="setting-label">حالة OpenRouter API:</div>
+          <div>{{ 'متصل' if has_openrouter else 'غير متصل' }}</div>
+        </div>
+        
+        <div class="setting-group">
+          <div class="setting-label">حالة ElevenLabs API:</div>
+          <div>{{ 'متصل' if has_elevenlabs else 'غير متصل (سيتم استخدام VoiceRSS أو المتصفح)' }}</div>
+        </div>
+        
+        <div class="setting-group">
+          <div class="setting-label">حالة VoiceRSS API:</div>
+          <div>{{ 'متصل' if has_voicerss else 'غير متصل' }}</div>
+        </div>
+        
+        <div class="setting-group">
+          <div class="setting-label">اختيار خدمة تحويل النص إلى كلام:</div>
+          <select id="tts-service-select">
+            <option value="elevenlabs" {% if has_elevenlabs %}selected{% endif %}>ElevenLabs (عالي الجودة)</option>
+            <option value="voicerss" {% if has_voicerss and not has_elevenlabs %}selected{% endif %}>VoiceRSS (متوسط الجودة)</option>
+            <option value="browser">المتصفح (منخفض الجودة)</option>
+          </select>
+        </div>
+        
+        <div class="setting-group">
+          <div class="setting-label">ملاحظة:</div>
+          <div>لتجربة أفضل، استخدم متصفح يدعم التعرف على الكلام مثل Chrome أو Edge</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Elements
+      const startButton = document.getElementById('start-button');
+      const stopButton = document.getElementById('stop-button');
+      const clearButton = document.getElementById('clear-button');
+      const textInput = document.getElementById('text-input');
+      const sendButton = document.getElementById('send-button');
+      const modelSelect = document.getElementById('model-select');
+      const voiceSelect = document.getElementById('voice-select');
+      const conversationDiv = document.getElementById('conversation');
+      const loader = document.querySelector('.loader');
+      
+      // Speech recognition
+      let recognition = null;
+      let isListening = false;
+      
+      // Initialize speech recognition if available
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'ar-SA'; // Arabic language
+        
+        recognition.onstart = function() {
+          isListening = true;
+          startButton.classList.add('recording');
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          
+          // Add temporary message
+          const tempMessage = document.createElement('div');
+          tempMessage.id = 'temp-message';
+          tempMessage.className = 'message user-message';
+          tempMessage.innerHTML = `
+            <div class="message-header">
+              <i class="fas fa-user-circle"></i>&nbsp;
+              أنت
+            </div>
+            <div class="message-content">
+              <i class="fas fa-volume-up"></i> جارٍ الاستماع...
+            </div>
+          `;
+          conversationDiv.appendChild(tempMessage);
+          
+          // Scroll to bottom
+          conversationDiv.scrollTop = conversationDiv.scrollHeight;
+        };
+        
+        recognition.onresult = function(event) {
+          const transcript = Array.from(event.results)
+            .map(result => result[0])
+            .map(result => result.transcript)
+            .join('');
+          
+          // Update temporary message
+          const tempMessage = document.getElementById('temp-message');
+          if (tempMessage) {
+            tempMessage.querySelector('.message-content').textContent = transcript;
+          }
+          
+          // Fill text input with transcript
+          textInput.value = transcript;
+        };
+        
+        recognition.onend = function() {
+          isListening = false;
+          startButton.classList.remove('recording');
+          startButton.disabled = false;
+          stopButton.disabled = true;
+          
+          // If text was captured, send it
+          if (textInput.value.trim()) {
+            // Remove temporary message
+            const tempMessage = document.getElementById('temp-message');
+            if (tempMessage) {
+              tempMessage.remove();
+            }
+            
+            // Send the message
+            sendMessage(textInput.value.trim());
+          } else {
+            // No text captured, remove temp message
+            const tempMessage = document.getElementById('temp-message');
+            if (tempMessage) {
+              tempMessage.remove();
+            }
+          }
+        };
+        
+        recognition.onerror = function(event) {
+          console.error('Speech recognition error:', event.error);
+          isListening = false;
+          startButton.classList.remove('recording');
+          startButton.disabled = false;
+          stopButton.disabled = true;
+          
+          // Remove temporary message
+          const tempMessage = document.getElementById('temp-message');
+          if (tempMessage) {
+            tempMessage.remove();
+          }
+          
+          // Add error message
+          addMessage('حدث خطأ في التعرف على الصوت. حاول مرة أخرى.', 'assistant');
+        };
+      } else {
+        // Browser doesn't support speech recognition
+        startButton.disabled = true;
+        startButton.textContent = 'المتصفح لا يدعم التعرف على الصوت';
+        stopButton.disabled = true;
+      }
+      
+      // Event listeners
+      startButton.addEventListener('click', function() {
+        if (recognition) {
+          recognition.start();
+        }
+      });
+      
+      stopButton.addEventListener('click', function() {
+        if (recognition) {
+          recognition.stop();
+        }
+      });
+      
+      clearButton.addEventListener('click', function() {
+        conversationDiv.innerHTML = '';
+        textInput.value = '';
+      });
+      
+      sendButton.addEventListener('click', function() {
+        if (textInput.value.trim()) {
+          sendMessage(textInput.value.trim());
+        }
+      });
+      
+      textInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && textInput.value.trim()) {
+          sendMessage(textInput.value.trim());
+        }
+      });
+      
+      // Function to send message to server
+      function sendMessage(text) {
+        // Add user message to conversation
+        addMessage(text, 'user');
+        
+        // Clear input
+        textInput.value = '';
+        
+        // Show loader
+        loader.style.display = 'flex';
+        
+        // Get selected model, voice, and TTS service
+        const model = modelSelect.value;
+        const voice = voiceSelect ? voiceSelect.value : null;
+        const ttsService = document.getElementById('tts-service-select') ? 
+                           document.getElementById('tts-service-select').value : 'elevenlabs';
+        
+        // Send to server
+        fetch('/api/voice_assistant', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            prompt: text,
+            model: model,
+            voice_id: voice,
+            tts_service: ttsService
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          // Hide loader
+          loader.style.display = 'none';
+          
+          if (data.status === 'success') {
+            // Add assistant message with audio and audio type info
+            addMessage(data.reply, 'assistant', data.audio, data.audio_type);
+          } else {
+            // Add error message
+            addMessage(data.message || 'حدث خطأ أثناء معالجة طلبك', 'assistant');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          loader.style.display = 'none';
+          
+          // Add error message
+          addMessage('حدث خطأ في الاتصال بالخادم', 'assistant');
+        });
+      }
+      
+      // Function to add message to conversation
+      function addMessage(text, sender, audio = null, audioType = 'base64') {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        
+        let messageContent = `
+          <div class="message-header">
+            <i class="fas fa-${sender === 'user' ? 'user-circle' : 'robot'}"></i>&nbsp;
+            ${sender === 'user' ? 'أنت' : 'ياسمين'}
+          </div>
+          <div class="message-content">${text}</div>
+        `;
+        
+        // Add actions if it's an assistant message
+        if (sender === 'assistant') {
+          messageContent += `
+            <div class="message-actions">
+              <button class="action-button speak-button">
+                <i class="fas fa-volume-up"></i>
+                استماع
+              </button>
+            </div>
+          `;
+        }
+        
+        messageDiv.innerHTML = messageContent;
+        
+        // Add to conversation
+        conversationDiv.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+        
+        // Add event listener to speak button
+        if (sender === 'assistant') {
+          const speakButton = messageDiv.querySelector('.speak-button');
+          
+          speakButton.addEventListener('click', function() {
+            if (audio) {
+              // Play audio from API (either ElevenLabs or VoiceRSS)
+              if (audioType === 'url') {
+                // VoiceRSS: Direct URL to audio
+                const audioPlayer = document.createElement('audio');
+                audioPlayer.style.display = 'none';
+                audioPlayer.src = audio;
+                audioPlayer.addEventListener('ended', () => {
+                  audioPlayer.remove();
+                });
+                document.body.appendChild(audioPlayer);
+                audioPlayer.play();
+              } else {
+                // ElevenLabs: Base64 encoded audio
+                const audioData = new Audio(`data:audio/mpeg;base64,${audio}`);
+                audioData.play();
+              }
+            } else {
+              // Fallback: Use browser's speech synthesis
+              speakWithBrowser(text);
+            }
+          });
+          
+          // Auto-play if it's an assistant message with audio
+          if (audio) {
+            if (audioType === 'url') {
+              // VoiceRSS: Direct URL to audio
+              const audioPlayer = document.createElement('audio');
+              audioPlayer.style.display = 'none';
+              audioPlayer.src = audio;
+              audioPlayer.addEventListener('ended', () => {
+                audioPlayer.remove();
+              });
+              document.body.appendChild(audioPlayer);
+              audioPlayer.play();
+            } else {
+              // ElevenLabs: Base64 encoded audio
+              const audioData = new Audio(`data:audio/mpeg;base64,${audio}`);
+              audioData.play();
+            }
+          }
+        }
+      }
+      
+      // Function to speak text using browser's speech synthesis
+      function speakWithBrowser(text) {
+        if ('speechSynthesis' in window) {
+          // Create utterance
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'ar-SA'; // Arabic
+          utterance.rate = 0.9; // Slightly slower for better pronunciation
+          
+          // Get available voices
+          let voices = window.speechSynthesis.getVoices();
+          
+          // If voices array is empty, wait for voices to load (Chrome needs this)
+          if (voices.length === 0) {
+            window.speechSynthesis.onvoiceschanged = function() {
+              voices = window.speechSynthesis.getVoices();
+              setVoiceAndSpeak();
+            };
+          } else {
+            setVoiceAndSpeak();
+          }
+          
+          function setVoiceAndSpeak() {
+            // Try to find Arabic voice
+            let arabicVoice = voices.find(voice => 
+              voice.lang.includes('ar') || 
+              voice.name.includes('Arabic') || 
+              voice.name.includes('العرب') ||
+              voice.name.includes('Arab')
+            );
+            
+            if (arabicVoice) {
+              utterance.voice = arabicVoice;
+              console.log('Using Arabic voice:', arabicVoice.name);
+            } else {
+              console.log('No Arabic voice found, using default voice');
+            }
+            
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            
+            // Speak the text
+            window.speechSynthesis.speak(utterance);
+          }
+        } else {
+          console.error('Browser does not support speech synthesis');
+        }
+      }
+      
+      // Add initial greeting
+      addMessage('مرحباً! أنا ياسمين، المساعد الصوتي. كيف يمكنني مساعدتك؟', 'assistant');
+    });
+  </script>
+</body>
+</html>

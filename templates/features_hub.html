@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}ياسمين AI - المميزات{% endblock %}
+
+{% block styles %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        padding: 50px 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-pattern {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('https://images.unsplash.com/photo-1586953208448-b95a79798f07');
+        background-size: cover;
+        opacity: 0.1;
+        z-index: 0;
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        font-weight: 700;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+        font-weight: 300;
+        opacity: 0.9;
+    }
+    
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+        padding: 40px 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .feature-card {
+        background: var(--card-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        transition: transform 0.3s, box-shadow 0.3s;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-10px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .feature-header {
+        padding: 20px;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+        height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .feature-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7));
+        z-index: 1;
+    }
+    
+    .feature-icon {
+        position: relative;
+        z-index: 2;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 30px;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .feature-body {
+        padding: 20px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .feature-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: var(--text-color);
+        text-align: center;
+    }
+    
+    .feature-description {
+        color: var(--text-light);
+        margin-bottom: 20px;
+        flex-grow: 1;
+        line-height: 1.6;
+    }
+    
+    .feature-button {
+        background: linear-gradient(135deg, var(--primary-light), var(--primary-color));
+        color: white;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        text-align: center;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
+    }
+    
+    .feature-button:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .welcome-message {
+        text-align: center;
+        margin: 20px 0;
+        font-size: 1.2rem;
+        color: var(--text-color);
+    }
+    
+    .welcome-name {
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="hero-pattern"></div>
+    <div class="hero-content">
+        <h1 class="hero-title">مرحباً بك في ياسمين AI</h1>
+        <p class="hero-subtitle">مساعدك الذكي لاكتشاف عالم التكنولوجيا والذكاء الاصطناعي</p>
+    </div>
+</section>
+
+<div class="welcome-message">
+    <h2>أهلاً <span class="welcome-name">{{ username }}</span>، كيف يمكنني مساعدتك اليوم؟</h2>
+</div>
+
+<div class="features-grid">
+    <!-- Voice Assistant Feature Card -->
+    <div class="feature-card">
+        <div class="feature-header" style="background-image: url('https://images.unsplash.com/photo-1693722339588-66e64f8fd48a')">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #e67e22, #d35400)">
+                <i class="fas fa-microphone-alt"></i>
+            </div>
+        </div>
+        <div class="feature-body">
+            <h3 class="feature-title">المساعد الصوتي</h3>
+            <p class="feature-description">تحدث بصوتك للمساعد الذكي واستمع للإجابات الصوتية</p>
+            <a href="{{ url_for('voice_assistant') }}" class="feature-button">استخدم المساعد الصوتي</a>
+        </div>
+    </div>
+    
+    {% for assistant in assistants %}
+    <div class="feature-card">
+        <div class="feature-header" style="background-image: url('{{ assistant.avatar }}')">
+            <div class="feature-icon" style="background: {{ assistant.color }}">
+                <i class="fas {% if assistant.id == 'gpt4o' %}fa-brain{% elif assistant.id == 'claude' %}fa-robot{% elif assistant.id == 'gemini' %}fa-lightbulb{% elif assistant.id == 'elevenlabs' %}fa-volume-up{% elif assistant.id == 'openrouter' %}fa-random{% elif assistant.id == 'techcompare' %}fa-mobile-alt{% endif %}"></i>
+            </div>
+        </div>
+        <div class="feature-body">
+            <h3 class="feature-title">{{ assistant.name }}</h3>
+            <p class="feature-description">{{ assistant.description }}</p>
+            {% if assistant.id == 'techcompare' %}
+            <a href="{{ url_for('compare') }}" class="feature-button">استخدم الميزة</a>
+            {% elif assistant.id == 'elevenlabs' %}
+            <a href="{{ url_for('audio_generator') }}" class="feature-button">توليد الصوت</a>
+            {% elif assistant.id == 'phoneassistant' %}
+            <a href="{{ url_for('phone_assistant') }}" class="feature-button">اختيار الهاتف المناسب</a>
+            {% else %}
+            <a href="{{ url_for('chat', assistant_id=assistant.id) }}" class="feature-button">ابدأ المحادثة</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

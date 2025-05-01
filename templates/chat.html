@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}ياسمين AI - محادثة مع {{ assistant.name }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="chat-container">
+        <div class="chat-header" style="background: {{ assistant.color }}">
+            <div class="chat-avatar">
+                <img src="{{ assistant.avatar }}" alt="{{ assistant.name }}">
+            </div>
+            <div class="chat-info">
+                <div class="chat-name">{{ assistant.name }}</div>
+                <div class="chat-status">متصل الآن</div>
+            </div>
+            <div class="chat-actions">
+                <button class="chat-action-btn" title="المزيد من الخيارات">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages" data-assistant-id="{{ assistant.id }}" data-assistant-avatar="{{ assistant.avatar }}">
+            <!-- Default welcome message -->
+            <div class="message message-assistant">
+                <div class="message-avatar">
+                    <img src="{{ assistant.avatar }}" alt="{{ assistant.name }}">
+                </div>
+                <div class="message-content">
+                    أهلاً {{ username }}! أنا {{ assistant.name }}، كيف يمكنني مساعدتك اليوم؟
+                    <span class="message-time">2025/4/28 1:17 م</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="suggestion-chips">
+            {% for question in suggested_questions %}
+            <div class="suggestion-chip">{{ question }}</div>
+            {% endfor %}
+        </div>
+        
+        <div class="chat-input-area">
+            <form id="chat-form" class="chat-form">
+                <button type="button" id="mic-btn" class="chat-mic-btn" title="استخدم الميكروفون">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button type="button" id="auto-mode-btn" class="chat-auto-btn active" title="وضع الإرسال التلقائي">
+                    <i class="fas fa-magic"></i>
+                </button>
+                <input type="text" id="chat-input" class="chat-input" placeholder="اكتب رسالتك هنا..." autocomplete="off">
+                <button type="submit" class="chat-send-btn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

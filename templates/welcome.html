@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}أهلاً بك في ياسمين AI{% endblock %}
+
+{% block styles %}
+<style>
+    .entry-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 40px);
+        padding: 20px;
+        background: url('https://images.unsplash.com/photo-1594632110477-aba45f9db4c1') no-repeat center center;
+        background-size: cover;
+        position: relative;
+    }
+    
+    .entry-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(199, 142, 94, 0.8), rgba(178, 123, 77, 0.8));
+        z-index: 1;
+    }
+
+    .entry-card {
+        background-color: var(--card-color);
+        border-radius: var(--radius-lg);
+        padding: 40px;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+        max-width: 600px;
+        width: 100%;
+        position: relative;
+        z-index: 2;
+    }
+
+    .entry-card h1 {
+        font-size: 2.5rem;
+        color: var(--primary-color);
+        margin-bottom: 15px;
+    }
+
+    .entry-card p {
+        color: var(--text-light);
+        margin-bottom: 30px;
+        font-size: 1.1rem;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .entry-button {
+        width: 100%;
+        padding: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .entry-button:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .logo-container {
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 20px;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 50px;
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* AI Assistants Showcase */
+    .ai-assistants-showcase {
+        margin: 30px 0;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(240, 215, 185, 0.3), rgba(218, 169, 135, 0.3));
+        border-radius: var(--radius-lg);
+    }
+    
+    .ai-assistants-title {
+        font-size: 1.3rem;
+        color: var(--primary-dark);
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: 600;
+    }
+    
+    .ai-models-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 15px;
+        justify-content: center;
+    }
+    
+    .ai-model-card {
+        background-color: var(--card-color);
+        border-radius: var(--radius-md);
+        padding: 15px;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .ai-model-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .ai-model-logo {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: var(--radius-md);
+        font-size: 25px;
+        color: white;
+    }
+    
+    .ai-model-name {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: var(--text-color);
+    }
+    
+    .ai-model-desc {
+        font-size: 0.8rem;
+        color: var(--text-light);
+    }
+    
+    .gpt-logo {
+        background: linear-gradient(135deg, #10a37f, #0a8263);
+    }
+    
+    .claude-logo {
+        background: linear-gradient(135deg, #9a48d0, #7a3aa4);
+    }
+    
+    .gemini-logo {
+        background: linear-gradient(135deg, #4285f4, #0f9d58);
+    }
+    
+    .elevenlabs-logo {
+        background: linear-gradient(135deg, #ff5757, #c43a3a);
+    }
+    
+    .openrouter-logo {
+        background: linear-gradient(135deg, #ff9e00, #d9840c);
+    }
+    
+    body.dark-mode .ai-assistants-showcase {
+        background: linear-gradient(135deg, rgba(42, 42, 42, 0.5), rgba(58, 58, 58, 0.5));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="entry-container">
+    <div class="entry-card">
+        <div class="logo-container">
+            <i class="fas fa-robot"></i>
+        </div>
+        <h1>أهلاً بك!</h1>
+        <p>للدخول إلى ياسمين AI، يرجى كتابة اسمك:</p>
+
+        <div class="form-group">
+            <label for="user-name-input" class="form-label">اسم المستخدم</label>
+            <input type="text" id="user-name-input" class="form-control" placeholder="أدخل اسمك هنا" autocomplete="off">
+        </div>
+
+        <button id="enter-app-button" class="entry-button">الدخول إلى التطبيق</button>
+        
+        <!-- AI Assistants Showcase -->
+        <div class="ai-assistants-showcase">
+            <div class="ai-assistants-title">اكتشف قوة الذكاء الاصطناعي المتكامل</div>
+            <div class="ai-models-grid">
+                <div class="ai-model-card">
+                    <div class="ai-model-logo gpt-logo">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="ai-model-name">GPT-4o</div>
+                    <div class="ai-model-desc">معالجة متقدمة للغة الطبيعية</div>
+                </div>
+                
+                <div class="ai-model-card">
+                    <div class="ai-model-logo claude-logo">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="ai-model-name">Claude 3.5</div>
+                    <div class="ai-model-desc">تفكير متعمق وتحليل شامل</div>
+                </div>
+                
+                <div class="ai-model-card">
+                    <div class="ai-model-logo gemini-logo">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <div class="ai-model-name">Gemini 1.5</div>
+                    <div class="ai-model-desc">فهم متعدد الوسائط</div>
+                </div>
+                
+                <div class="ai-model-card">
+                    <div class="ai-model-logo elevenlabs-logo">
+                        <i class="fas fa-volume-up"></i>
+                    </div>
+                    <div class="ai-model-name">ElevenLabs</div>
+                    <div class="ai-model-desc">تحويل نص لصوت طبيعي</div>
+                </div>
+                
+                <div class="ai-model-card">
+                    <div class="ai-model-logo openrouter-logo">
+                        <i class="fas fa-random"></i>
+                    </div>
+                    <div class="ai-model-name">OpenRouter</div>
+                    <div class="ai-model-desc">توجيه ذكي للنماذج المختلفة</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nameInput = document.getElementById('user-name-input');
+        const enterButton = document.getElementById('enter-app-button');
+
+        function enterApp() {
+            const userName = nameInput.value.trim();
+            if (userName) {
+                // Send username to server
+                fetch('/api/save_username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username: userName })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.href = data.redirect;
+                    } else {
+                        showToast(data.message || 'حدث خطأ أثناء حفظ الاسم', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('حدث خطأ في الاتصال بالخادم', 'error');
+                });
+            } else {
+                showToast('يرجى إدخال اسم للدخول', 'error');
+                nameInput.focus();
+            }
+        }
+
+        enterButton.addEventListener('click', enterApp);
+
+        nameInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                enterApp();
+            }
+        });
+
+        // Focus the input field on load
+        nameInput.focus();
+    });
+</script>
+{% endblock %}

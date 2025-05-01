@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}ياسمين AI - توليد الصوت{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/audio_generator.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="feature-page">
+    <div class="feature-page-header">
+        <h1>توليد الصوت</h1>
+    </div>
+
+    <div class="generator-card">
+        <div class="note">
+            <i class="fas fa-info-circle"></i>
+            <div>
+                استخدم هذه الأداة لتحويل النص إلى كلام منطوق بأصوات طبيعية عالية الجودة. اكتب النص الذي تريد تحويله إلى كلام واختر الصوت المناسب.
+            </div>
+        </div>
+
+        <div class="input-area">
+            <label for="text-input" class="input-label">النص المراد تحويله إلى صوت</label>
+            <textarea id="text-input" class="feature-input" placeholder="اكتب هنا النص الذي تريد تحويله إلى صوت..."></textarea>
+            
+            <div class="voice-select-container">
+                <label for="voice-select">اختر الصوت</label>
+                <select id="voice-select" class="feature-select">
+                    <option value="EXAVITQu4vr4xnSDxMaL">آدم (صوت رجالي)</option>
+                    <option value="21m00Tcm4TlvDq8ikWAM">راشيل (صوت نسائي)</option>
+                    <option value="ONIBU1mnHqbNnNtBkZMM">أمير (صوت رجالي)</option>
+                    <option value="jsCqWAovK2LkecY7zXl4">سارة (صوت نسائي)</option>
+                    <option value="XrExE9yKIg1WjnnlVkGX">فهد (صوت رجالي)</option>
+                    <option value="SOYHLrjzK2X1ezoPC6cr">ليلى (صوت نسائي)</option>
+                    <option value="pNInz6obpgDQGcFmaJgB">هدى (صوت نسائي)</option>
+                    <option value="29vD33N1CtxCmqQRPOHJ">نور (صوت نسائي)</option>
+                </select>
+            </div>
+            
+            <div class="mode-toggle">
+                <input type="checkbox" id="use-browser-tts" name="use-browser-tts">
+                <label for="use-browser-tts">استخدام المتصفح للنطق (عند عدم توفر ElevenLabs)</label>
+            </div>
+            
+            <button id="generate-audio-button" class="action-button">
+                <i class="fas fa-volume-up"></i>
+                توليد الصوت
+            </button>
+        </div>
+
+        <div class="loading-spinner" id="loading-spinner"></div>
+
+        <div class="generated-content" id="audio-result">
+            <!-- Audio will be displayed here -->
+        </div>
+    </div>
+
+    <div class="generator-card" id="usage-tips">
+        <h3>نصائح للحصول على نتائج أفضل:</h3>
+        <ul>
+            <li>استخدم جملاً كاملة وواضحة للحصول على نطق أكثر طبيعية</li>
+            <li>أضف علامات الترقيم المناسبة للتحكم في إيقاع النطق والتوقفات</li>
+            <li>تجنب الاختصارات غير الشائعة والرموز الخاصة</li>
+            <li>يمكنك استخدام علامات الاستفهام والتعجب للتحكم في نبرة الصوت</li>
+            <li>إذا كان النص طويلاً، قم بتقسيمه إلى أجزاء أصغر للحصول على أداء أفضل</li>
+        </ul>
+        
+        <div class="note" style="margin-top: 20px;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div>
+                تعتمد هذه الميزة على خدمة ElevenLabs لتوليد الصوت. إذا لم تكن متوفرة، سيتم استخدام النطق المدمج في المتصفح كبديل.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/audio_generator.js') }}"></script>
+{% endblock %}
