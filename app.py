@@ -1290,17 +1290,26 @@ def api_voice_assistant():
     ]
     
     # Import from utils to use the updated OpenRouter API function
-    # Import utilities from utils.py
-    from utils import call_openrouter_api, text_to_speech
+    from utils import call_openrouter_api as utils_openrouter
 
     # Call OpenRouter API to get AI response
-    ai_response = call_openrouter_api(messages, model=model)
+    try:
+        ai_response = utils_openrouter(messages, model=model)
+    except Exception as e:
+        logger.error(f"Error using utils.call_openrouter_api: {e}")
+        # Fallback to original function if needed
+        ai_response = call_openrouter_api(messages[1]["content"], model=model)
     
     # Generate audio
     voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
     
-    # Use utils.text_to_speech function from the centralized utils.py
-    audio_result = text_to_speech(ai_response, voice_id=voice_id, tts_service=tts_service)
+    # Use utils.text_to_speech with tts_service parameter if available, otherwise fall back to original function
+    try:
+        from utils import text_to_speech as utils_tts
+        audio_result = utils_tts(ai_response, voice_id=voice_id, tts_service=tts_service)
+    except (TypeError, ImportError) as e:
+        logger.warning(f"Failed to use utils.text_to_speech with tts_service: {e}. Using default TTS.")
+        audio_result = text_to_speech(ai_response, voice_id=voice_id)
     
     # Determine if we got back a URL (VoiceRSS) or base64 data (ElevenLabs)
     audio_type = "url" if audio_result and audio_result.startswith("http") else "base64"

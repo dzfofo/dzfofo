@@ -10,13 +10,9 @@ from urllib.parse import quote
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- This file is deprecated and being gradually moved to utils.py and app.py ---
-# The code is kept for reference only and will be removed later
-# Do not run this file directly or import the Flask app from it
-
-# This was a separate Flask app but is now integrated into the main app.py
-# app = Flask(__name__)
-# app.secret_key = os.environ.get("SESSION_SECRET", "yasmin_voice_assistant")
+# --- Initialize Flask app ---
+app = Flask(__name__)
+app.secret_key = os.environ.get("SESSION_SECRET", "yasmin_voice_assistant")
 
 # --- API Keys from environment variables ---
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
@@ -313,55 +309,48 @@ def call_openrouter_api(prompt, model="openai/gpt-3.5-turbo", temperature=0.7, m
         logger.error(f"Error calling OpenRouter API: {e}")
         return "حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى لاحقاً."
 
-# --- DEPRECATED ROUTES ---
-# These routes are now maintained in app.py
-# DO NOT USE THESE ROUTES DIRECTLY
-#
-# @app.route('/')
-# def index():
-#     # Determine models available based on API keys
-#     has_openrouter = bool(OPENROUTER_API_KEY)
-#     has_elevenlabs = bool(ELEVENLABS_API_KEY)
-#     has_voicerss = bool(VOICERSS_API_KEY)
-#     
-#     return render_template('voice_assistant.html', 
-#                           has_openrouter=has_openrouter,
-#                           has_elevenlabs=has_elevenlabs,
-#                           has_voicerss=has_voicerss)
-#
-# @app.route("/api/voice_assistant", methods=["POST"])
-# def voice_assistant():
-#     """Process voice input and generate AI response"""
-#     data = request.get_json()
-#     user_prompt = data.get("prompt", "")
-#     model = data.get("model", "mistralai/mixtral-8x7b-instruct")
-#     tts_service = data.get("tts_service", "elevenlabs")  # Default to ElevenLabs but allow override
-#     
-#     if not user_prompt:
-#         return jsonify({"status": "error", "message": "لم يتم توفير نص للمعالجة"})
-#     
-#     # Call OpenRouter API to get AI response
-#     ai_response = call_openrouter_api(user_prompt, model=model)
-#     
-#     # Generate audio using the requested TTS service
-#     voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
-#     audio_result = text_to_speech(ai_response, voice_id=voice_id, tts_service=tts_service)
-#     
-#     # Determine if we got back a URL (VoiceRSS) or base64 data (ElevenLabs)
-#     audio_type = "url" if audio_result and not audio_result.startswith("data:") and not audio_result.startswith("UklGR") else "base64"
-#     
-#     return jsonify({
-#         "status": "success",
-#         "reply": ai_response,
-#         "audio": audio_result,
-#         "audio_type": audio_type
-#     })
+# --- Routes ---
 
-# --- DEPRECATED MAIN ENTRY POINT ---
-# This file should not be run directly
-# All functionality is now in app.py
+@app.route('/')
+def index():
+    # Determine models available based on API keys
+    has_openrouter = bool(OPENROUTER_API_KEY)
+    has_elevenlabs = bool(ELEVENLABS_API_KEY)
+    has_voicerss = bool(VOICERSS_API_KEY)
+    
+    return render_template('voice_assistant.html', 
+                          has_openrouter=has_openrouter,
+                          has_elevenlabs=has_elevenlabs,
+                          has_voicerss=has_voicerss)
+
+@app.route("/api/voice_assistant", methods=["POST"])
+def voice_assistant():
+    """Process voice input and generate AI response"""
+    data = request.get_json()
+    user_prompt = data.get("prompt", "")
+    model = data.get("model", "mistralai/mixtral-8x7b-instruct")
+    tts_service = data.get("tts_service", "elevenlabs")  # Default to ElevenLabs but allow override
+    
+    if not user_prompt:
+        return jsonify({"status": "error", "message": "لم يتم توفير نص للمعالجة"})
+    
+    # Call OpenRouter API to get AI response
+    ai_response = call_openrouter_api(user_prompt, model=model)
+    
+    # Generate audio using the requested TTS service
+    voice_id = data.get("voice_id", "EXAVITQu4vr4xnSDxMaL")
+    audio_result = text_to_speech(ai_response, voice_id=voice_id, tts_service=tts_service)
+    
+    # Determine if we got back a URL (VoiceRSS) or base64 data (ElevenLabs)
+    audio_type = "url" if audio_result and not audio_result.startswith("data:") and not audio_result.startswith("UklGR") else "base64"
+    
+    return jsonify({
+        "status": "success",
+        "reply": ai_response,
+        "audio": audio_result,
+        "audio_type": audio_type
+    })
+
 if __name__ == "__main__":
-    print("WARNING: This module is deprecated and should not be run directly.")
-    print("Please use 'python app.py' instead.")
-    # Do not run the Flask app from here
-    # app.run(host="0.0.0.0", port=5000, debug=True)
+    # Run the Flask app
+    app.run(host="0.0.0.0", port=5000, debug=True)
