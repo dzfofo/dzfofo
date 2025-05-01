@@ -226,7 +226,8 @@ ASSISTANTS = [
         "avatar": "https://images.unsplash.com/photo-1693722339588-66e64f8fd48a?w=64&h=64&fit=crop&auto=format", # Using the image from voice_assistant.html
         "description": "تحدث إلى المساعد الذكي باللغة العربية",
         "color": "linear-gradient(135deg, #e67e22, #d35400)", # Using the color from voice_assistant.html
-        "url": "/voice_assistant"
+        "url": "/voice_assistant", # Link to the voice assistant page
+        "button_text": "استخدم المساعد الصوتي" # Custom button text for this feature
     },
      {
         "id": "audio_generator_feature",
@@ -234,7 +235,8 @@ ASSISTANTS = [
         "avatar": "https://images.unsplash.com/photo-1616161560417-66d4db5892ec?w=64&h=64&fit=crop&auto=format", # ElevenLabs avatar
         "description": "تحويل نص لصوت طبيعي",
         "color": "linear-gradient(135deg, #ff5757, #c43a3a)",
-        "url": "/audio-generator"
+        "url": "/audio-generator",
+        "button_text": "توليد الصوت"
     },
     {
         "id": "tech_compare_feature",
@@ -242,7 +244,8 @@ ASSISTANTS = [
         "avatar": "https://images.unsplash.com/photo-1530545002211-21753020f4c8?w=64&h=64&fit=crop&auto=format", # TechCompare avatar
         "description": "مقارنة مواصفات الهواتف الذكية",
         "color": "linear-gradient(135deg, #4a69bd, #3a59ad)",
-        "url": "/compare"
+        "url": "/compare",
+        "button_text": "قارن الأجهزة"
     },
      {
         "id": "phone_assistant_feature",
@@ -250,7 +253,8 @@ ASSISTANTS = [
         "avatar": "https://images.unsplash.com/photo-1599317193916-7bb9b7b7e744?w=64&h=64&fit=crop&auto=format", # PhoneAssistant avatar
         "description": "اقتراح الهاتف المناسب لمتطلباتك",
         "color": "linear-gradient(135deg, #fd1d1d, #f77062)",
-        "url": "/phone-assistant"
+        "url": "/phone-assistant",
+        "button_text": "مساعد الهواتف"
     },
      {
         "id": "image_generator_feature",
@@ -258,7 +262,8 @@ ASSISTANTS = [
         "avatar": "https://images.unsplash.com/photo-1579546998516-e0d3cd0e3d4b?w=64&h=64&fit=crop&auto=format", # Abstract/creative image
         "description": "إنشاء صور من وصف نصي",
         "color": "linear-gradient(135deg, #3498db, #2980b9)",
-        "url": "/image-generator"
+        "url": "/image-generator",
+        "button_text": "توليد الصور"
     }
 ]
 
@@ -267,6 +272,7 @@ SUGGESTED_QUESTIONS = []
 
 @app.route('/')
 def index():
+    """Render the welcome page or redirect to features if logged in."""
     # Redirect to features_hub if already logged in (username in session)
     # Consider using current_user.is_authenticated with Flask-Login for proper auth check
     if 'username' in session:
@@ -1089,9 +1095,9 @@ def api_text_to_speech():
     tts_result = text_to_speech(text, voice_id=voice_id, tts_service=tts_service)
 
     # --- FIX: Handle case where text_to_speech returns None explicitly ---
-    # utils.text_to_speech should only return None if browser fallback is disabled AND all APIs fail.
-    # Given the current implementation, it should always return a dict (either API result or browser).
-    # However, defensive coding is good.
+    # utils.text_to_speech is designed to always return a browser fallback
+    # unless all APIs are off AND browser is explicitly excluded (not the case here).
+    # If tts_result is None, it indicates a complete failure including browser fallback.
     if tts_result is None:
          logger.error(f"Final TTS failure after all attempts for text: {text[:50]}...")
          # Return an error response indicating TTS failure
@@ -1434,7 +1440,7 @@ def voice_assistant():
     # Determine models and TTS services available based on API keys imported from utils
     has_openrouter = bool(OPENROUTER_API_KEY)
     has_elevenlabs = bool(ELEVENLABS_API_KEY)
-    has_voicerss = bool(VOICERSS_API_KEY) # Use the key imported from utils
+    has_voicerss = bool(VOICERS_API_KEY) # Use the key imported from utils
 
     # Get preferred TTS service from session or default
     preferred_tts_service = session.get('preferred_tts_service', 'elevenlabs')
