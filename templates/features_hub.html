@@ -19,7 +19,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: url('https://images.unsplash.com/photo-1586953208448-b95a79798f07');
+        background: url('https://images.unsplash.com/photo-1586953208448-b95a79798f07'); /* Consider updating this background image */
         background-size: cover;
         opacity: 0.1;
         z-index: 0;
@@ -75,7 +75,7 @@
         background-size: cover;
         background-position: center;
         position: relative;
-        height: 150px;
+        height: 150px; /* Keep header height consistent */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -126,6 +126,7 @@
         margin-bottom: 20px;
         flex-grow: 1;
         line-height: 1.6;
+        text-align: center; /* Center description text */
     }
     
     .feature-button {
@@ -139,7 +140,8 @@
         border: none;
         cursor: pointer;
         text-decoration: none;
-        display: block;
+        display: block; /* Make the button full width of card body */
+        width: 100%; /* Ensure button fills container */
     }
     
     .feature-button:hover {
@@ -158,6 +160,14 @@
         font-weight: 700;
         color: var(--primary-color);
     }
+
+    /* Adjust background images and icon colors based on assistant/feature config if desired */
+    /* You would need to add specific classes or inline styles based on assistant.id or assistant.color */
+    /* Example:
+    .feature-card.chat-general .feature-icon { background: linear-gradient(135deg, #10a37f, #0a8263); }
+    .feature-card.voice-assistant-feature .feature-header { background-image: url('...'); }
+    */
+
 </style>
 {% endblock %}
 
@@ -170,46 +180,73 @@
     </div>
 </section>
 
-<div class="welcome-message">
-    <h2>أهلاً <span class="welcome-name">{{ username }}</span>، كيف يمكنني مساعدتك اليوم؟</h2>
-</div>
+<div class="container"> {# Add container around welcome message and grid for consistent padding #}
+    <div class="welcome-message">
+        <h2>أهلاً <span class="welcome-name">{{ username }}</span>، كيف يمكنني مساعدتك اليوم؟</h2>
+    </div>
 
-<div class="features-grid">
-    <!-- Voice Assistant Feature Card -->
-    <div class="feature-card">
-        <div class="feature-header" style="background-image: url('https://images.unsplash.com/photo-1693722339588-66e64f8fd48a')">
-            <div class="feature-icon" style="background: linear-gradient(135deg, #e67e22, #d35400)">
-                <i class="fas fa-microphone-alt"></i>
+    <div class="features-grid">
+        {% for assistant in assistants %}
+        <div class="feature-card" id="{{ assistant.id }}-card"> {# Added ID for potential JS targeting #}
+            <div class="feature-header" style="background-image: url('{{ assistant.avatar }}')">
+                <div class="feature-icon" style="background: {{ assistant.color }}">
+                    {# Use icon based on assistant type/id #}
+                    {# Make sure you have added appropriate icon classes (e.g., fa-comments, fa-image) #}
+                    {# to your Font Awesome library or update this logic #}
+                    <i class="fas {% if assistant.id == 'general' %}fa-comments{% elif assistant.id == 'gpt4o' %}fa-brain{% elif assistant.id == 'claude' %}fa-robot{% elif assistant.id == 'gemini' %}fa-lightbulb{% elif assistant.id == 'voice_assistant_feature' %}fa-microphone-alt{% elif assistant.id == 'audio_generator_feature' %}fa-volume-up{% elif assistant.id == 'tech_compare_feature' %}fa-mobile-alt{% elif assistant.id == 'phone_assistant_feature' %}fa-mobile{% elif assistant.id == 'image_generator_feature' %}fa-image{% else %}fa-star{% endif %}"></i>
+                </div>
+            </div>
+            <div class="feature-body">
+                <h3 class="feature-title">{{ assistant.name }}</h3>
+                <p class="feature-description">{{ assistant.description }}</p>
+
+                {# --- START: CORRECTED LINK LOGIC --- #}
+                {% if assistant.url %}
+                    {# If it's a feature with a specific URL, link directly #}
+                    <a href="{{ assistant.url }}" class="feature-button">
+                        {% if assistant.button_text %}
+                            {{ assistant.button_text }}
+                        {% else %}
+                            استخدم الميزة
+                        {% endif %}
+                    </a>
+                {% elif assistant.model %}
+                    {# If it's a chat assistant (has a model), link to the chat route #}
+                    <a href="{{ url_for('chat', assistant_id=assistant.id) }}" class="feature-button">
+                        ابدأ المحادثة
+                    </a>
+                {% else %}
+                     {# Fallback if neither url nor model is defined (shouldn't happen with well-defined ASSISTANTS list) #}
+                     <span class="feature-button" style="opacity: 0.7; cursor: not-allowed;">غير متاح</span>
+                {% endif %}
+                {# --- END: CORRECTED LINK LOGIC --- #}
             </div>
         </div>
-        <div class="feature-body">
-            <h3 class="feature-title">المساعد الصوتي</h3>
-            <p class="feature-description">تحدث بصوتك للمساعد الذكي واستمع للإجابات الصوتية</p>
-            <a href="{{ url_for('voice_assistant') }}" class="feature-button">استخدم المساعد الصوتي</a>
-        </div>
+        {% endfor %}
     </div>
-    
-    {% for assistant in assistants %}
-    <div class="feature-card">
-        <div class="feature-header" style="background-image: url('{{ assistant.avatar }}')">
-            <div class="feature-icon" style="background: {{ assistant.color }}">
-                <i class="fas {% if assistant.id == 'gpt4o' %}fa-brain{% elif assistant.id == 'claude' %}fa-robot{% elif assistant.id == 'gemini' %}fa-lightbulb{% elif assistant.id == 'elevenlabs' %}fa-volume-up{% elif assistant.id == 'openrouter' %}fa-random{% elif assistant.id == 'techcompare' %}fa-mobile-alt{% endif %}"></i>
-            </div>
-        </div>
-        <div class="feature-body">
-            <h3 class="feature-title">{{ assistant.name }}</h3>
-            <p class="feature-description">{{ assistant.description }}</p>
-            {% if assistant.id == 'techcompare' %}
-            <a href="{{ url_for('compare') }}" class="feature-button">استخدم الميزة</a>
-            {% elif assistant.id == 'elevenlabs' %}
-            <a href="{{ url_for('audio_generator') }}" class="feature-button">توليد الصوت</a>
-            {% elif assistant.id == 'phoneassistant' %}
-            <a href="{{ url_for('phone_assistant') }}" class="feature-button">اختيار الهاتف المناسب</a>
-            {% else %}
-            <a href="{{ url_for('chat', assistant_id=assistant.id) }}" class="feature-button">ابدأ المحادثة</a>
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{# Add any specific JavaScript for features_hub here if needed later #}
+{# For now, relies on main.js for theme toggle and logout #}
+<script>
+    // Optional: Add JavaScript here if you need dynamic behavior on this page,
+    // like showing tooltips on hover, or filtering features based on API key status
+    // (although API key status check is better done in the backend before rendering).
+
+    // Example: Check if certain APIs are connected and adjust buttons/cards (less ideal than backend check)
+    // document.addEventListener('DOMContentLoaded', function() {
+    //     const hasStability = {{ has_stability | tojson }}; // Assuming you pass this from Flask
+    //     if (!hasStability) {
+    //         const imageGenButton = document.querySelector('#image_generator_feature-card .feature-button');
+    //         if (imageGenButton) {
+    //             imageGenButton.textContent = "مفتاح API مفقود";
+    //             imageGenButton.style.opacity = 0.7;
+    //             imageGenButton.style.cursor = 'not-allowed';
+    //             imageGenButton.href = "#"; // Prevent click
+    //         }
+    //     }
+    // });
+</script>
 {% endblock %}
